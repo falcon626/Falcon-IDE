@@ -18,7 +18,7 @@
 
 - OS: Windows 10/11
 - 開発環境: Visual Studio 2026（MSVC toolset）
-- C++: C++20 を有効にしてください
+- C++: C++23 を有効にしてください
 - 追加: Windows SDK（最新推奨）、必要に応じて DirectX 12 開発キット
 
 ## ビルド手順（Visual Studio）
