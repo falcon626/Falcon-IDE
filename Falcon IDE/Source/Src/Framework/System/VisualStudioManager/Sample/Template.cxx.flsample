@@ -1,0 +1,126 @@
+static FlRuntimeAPI* g_runtimeApi { nullptr };
+
+typedef struct #ProjectName#Component
+{
+    // TODO: メンバ変数追加(Non POD)
+    // HACK: Componentは純粋なデータ構造体を推奨
+}#ProjectName#Component;
+
+/// <summary>
+/// コンポーネントCreate時の処理
+/// </summary>
+/// <param name="component">ComponentInstancePointer</param>
+/// <returns>無し</returns>
+void Start(void* component) noexcept
+{
+    // <Never Change>
+    if (!component)
+    {
+        g_runtimeApi->ToLogError("Start: Null component(%s) pointer.", "#ProjectName#Component");
+        return;
+    }
+    auto c{ static_cast<#ProjectName#Component*>(component) };
+    // </Never Change>
+
+    // TODO: スタート処理実装
+}
+
+/// <summary>
+/// コンポーネントDestroy時の処理
+/// </summary>
+/// <param name="component">ComponentInstancePointer</param>
+/// <returns>無し</returns>
+void OnDestroy(void* component) noexcept
+{
+    // <Never Change>
+    if (!component)
+    {
+        g_runtimeApi->ToLogError("OnDestroy: Null component(%s) pointer.", "#ProjectName#Component");
+        return;
+    }
+    auto c{ static_cast<#ProjectName#Component*>(component) };
+    // </Never Change>
+
+    // TODO: オンデストロイ処理実装
+}
+
+/// <summary>
+/// Componentデータの保存処理
+/// </summary>
+/// <param name="component">ComponentInstancePointer</param>
+/// <param name="json">nlohmann::jsonの保存用変数</param>
+/// <returns>無し</returns>
+void Serialize(void* component, nlohmann::json& json) noexcept
+{
+    // <Never Change>
+    if(!component)
+    {
+        g_runtimeApi->ToLogError("Serialize: Null component(%s) pointer.", "#ProjectName#Component");
+        return;
+    }
+    auto c{ static_cast<#ProjectName#Component*>(component) };
+    // </Never Change>
+
+    // TODO: シリアライズ処理実装(推奨: FlJsonUtility)
+}
+
+/// <summary>
+/// Componentデータの読込処理
+/// </summary>
+/// <param name="component">ComponentInstancePointer</param>
+/// <param name="json">nlohmann::jsonの読込用定数</param>
+/// <returns>無し</returns>
+void Deserialize(void* component, const nlohmann::json& json) noexcept
+{
+    // <Never Change>
+    if(!component)
+    {
+        g_runtimeApi->ToLogError("Deserialize: Null component(%s) pointer.", "#ProjectName#Component");
+        return;
+    }
+    auto c{ static_cast<#ProjectName#Component*>(component) };
+    // </Never Change>
+
+    // TODO: デシリアライズ処理実装(推奨: FlJsonUtility)
+}
+
+/// <summary>
+/// エディタ処理
+/// </summary>
+/// <param name="component">ComponentInstancePointer</param>
+/// <param name="id">uint32_t型の現在処理中のEntity</param>
+/// <returns>無し</returns>
+void RenderEditor(void* component, entityId id) noexcept
+{
+    // <Never Change>
+    if(!component)
+    {
+        g_runtimeApi->ToLogError("RenderEditor: Null component(%s) pointer.", "#ProjectName#Component");
+        return;
+    }
+    auto c{ static_cast<#ProjectName#Component*>(component) };
+    // </Never Change>
+
+    // TODO: エディタ処理実装
+}
+
+/// <summary>
+/// Componentデータの更新ロジック
+/// </summary>
+/// <param name="component">ComponentInstancePointer</param>
+/// <param name="id">uint32_t型の現在処理中のEntity</param>
+/// <param name="deltaTime">デルタタイム</param>
+/// <returns>無し</returns>
+void Update(void* component, entityId id, float deltaTime) noexcept
+{
+    // <Never Change>
+    if(!component)
+    {
+        g_runtimeApi->ToLogError("Update: Null component(%s) pointer.", "#ProjectName#Component");
+        return;
+    }
+    auto c{ static_cast<#ProjectName#Component*>(component) };
+    // </Never Change>
+
+    // TODO: 更新処理実装
+}

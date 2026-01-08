@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <Import Project="..\..\packages\Microsoft.Direct3D.D3D12.1.616.1\build\native\Microsoft.Direct3D.D3D12.props" Condition="Exists(&apos;..\..\packages\Microsoft.Direct3D.D3D12.1.616.1\build\native\Microsoft.Direct3D.D3D12.props&apos;)"/>
+    <ItemGroup Label="ProjectConfigurations">
+        <ProjectConfiguration Include="Debug|Win32">
+            <Configuration>Debug</Configuration>
+            <Platform>Win32</Platform>
+        </ProjectConfiguration>
+        <ProjectConfiguration Include="Release|Win32">
+            <Configuration>Release</Configuration>
+            <Platform>Win32</Platform>
+        </ProjectConfiguration>
+        <ProjectConfiguration Include="Debug|x64">
+            <Configuration>Debug</Configuration>
+            <Platform>x64</Platform>
+        </ProjectConfiguration>
+        <ProjectConfiguration Include="Release|x64">
+            <Configuration>Release</Configuration>
+            <Platform>x64</Platform>
+        </ProjectConfiguration>
+    </ItemGroup>
+    <PropertyGroup Label="Globals">
+        <VCProjectVersion>17.0</VCProjectVersion>
+        <Keyword>Win32Proj</Keyword>
+        <ProjectGuid>{#GUID#}</ProjectGuid>
+        <RootNamespace>#ProjectName#</RootNamespace>
+        <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    </PropertyGroup>
+    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
+    <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|Win32&apos;" Label="Configuration">
+        <ConfigurationType>DynamicLibrary</ConfigurationType>
+        <UseDebugLibraries>true</UseDebugLibraries>
+        <PlatformToolset>v145</PlatformToolset>
+        <CharacterSet>Unicode</CharacterSet>
+    </PropertyGroup>
+    <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|Win32&apos;" Label="Configuration">
+        <ConfigurationType>DynamicLibrary</ConfigurationType>
+        <UseDebugLibraries>false</UseDebugLibraries>
+        <PlatformToolset>v145</PlatformToolset>
+        <WholeProgramOptimization>true</WholeProgramOptimization>
+        <CharacterSet>Unicode</CharacterSet>
+    </PropertyGroup>
+    <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|x64&apos;" Label="Configuration">
+        <ConfigurationType>DynamicLibrary</ConfigurationType>
+        <UseDebugLibraries>true</UseDebugLibraries>
+        <PlatformToolset>v145</PlatformToolset>
+        <CharacterSet>Unicode</CharacterSet>
+    </PropertyGroup>
+    <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|x64&apos;" Label="Configuration">
+        <ConfigurationType>DynamicLibrary</ConfigurationType>
+        <UseDebugLibraries>false</UseDebugLibraries>
+        <PlatformToolset>v145</PlatformToolset>
+        <WholeProgramOptimization>true</WholeProgramOptimization>
+        <CharacterSet>Unicode</CharacterSet>
+    </PropertyGroup>
+    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"/>
+    <ImportGroup Label="ExtensionSettings"/>
+    <ImportGroup Label="Shared"/>
+    <ImportGroup Label="PropertySheets" Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|Win32&apos;">
+        <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(&apos;$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props&apos;)" Label="LocalAppDataPlatform"/>
+    </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|Win32&apos;">
+        <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(&apos;$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props&apos;)" Label="LocalAppDataPlatform"/>
+    </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|x64&apos;">
+        <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(&apos;$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props&apos;)" Label="LocalAppDataPlatform"/>
+    </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|x64&apos;">
+        <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(&apos;$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props&apos;)" Label="LocalAppDataPlatform"/>
+    </ImportGroup>
+    <PropertyGroup Label="UserMacros"/>
+    <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|Win32&apos;">
+        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\#ProjectName#\</OutDir>
+    </PropertyGroup>
+    <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|Win32&apos;">
+        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\#ProjectName#\</OutDir>
+    </PropertyGroup>
+    <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|x64&apos;">
+        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\#ProjectName#\</OutDir>
+    </PropertyGroup>
+    <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|x64&apos;">
+        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\#ProjectName#\</OutDir>
+    </PropertyGroup>
+    <ItemDefinitionGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|Win32&apos;">
+        <ClCompile>
+            <WarningLevel>Level3</WarningLevel>
+            <SDLCheck>true</SDLCheck>
+            <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_COMPONENTSYSTEM_BUILD;FL_MODULE;FL_COMPONENT;MACRO_#ProjectName#</PreprocessorDefinitions>
+            <ConformanceMode>true</ConformanceMode>
+            <PrecompiledHeader>Use</PrecompiledHeader>
+            <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+            <AdditionalIncludeDirectories>.\Src;$(SolutionDir);$(SolutionDir)Src\Framework\ImGui\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+            <LanguageStandard>stdcpplatest</LanguageStandard>
+        </ClCompile>
+        <Link>
+            <SubSystem>Console</SubSystem>
+            <GenerateDebugInformation>true</GenerateDebugInformation>
+        </Link>
+    </ItemDefinitionGroup>
+    <ItemDefinitionGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|Win32&apos;">
+        <ClCompile>
+            <WarningLevel>Level3</WarningLevel>
+            <FunctionLevelLinking>true</FunctionLevelLinking>
+            <IntrinsicFunctions>true</IntrinsicFunctions>
+            <SDLCheck>true</SDLCheck>
+            <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_COMPONENTSYSTEM_BUILD;FL_MODULE;FL_COMPONENT;MACRO_#ProjectName#</PreprocessorDefinitions>
+            <ConformanceMode>true</ConformanceMode>
+            <PrecompiledHeader>Use</PrecompiledHeader>
+            <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+            <AdditionalIncludeDirectories>.\Src;$(SolutionDir);$(SolutionDir)Src\Framework\;$(SolutionDir)Src\Framework\ImGui\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+            <LanguageStandard>stdcpplatest</LanguageStandard>
+        </ClCompile>
+        <Link>
+            <SubSystem>Console</SubSystem>
+            <GenerateDebugInformation>true</GenerateDebugInformation>
+        </Link>
+    </ItemDefinitionGroup>
+    <ItemDefinitionGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|x64&apos;">
+        <ClCompile>
+            <WarningLevel>Level3</WarningLevel>
+            <SDLCheck>true</SDLCheck>
+            <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_COMPONENTSYSTEM_BUILD;FL_MODULE;FL_COMPONENT;MACRO_#ProjectName#</PreprocessorDefinitions>
+            <ConformanceMode>true</ConformanceMode>
+            <PrecompiledHeader>Use</PrecompiledHeader>
+            <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+            <AdditionalIncludeDirectories>.\Src;$(SolutionDir);..\..\..\Library;$(SolutionDir)Src\Framework\ImGui;$(SolutionDir)Src;..\..\Src\Framework\Resource\Audio\core\inc;..\..\Src\Framework\Resource\Audio\studio\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+            <LanguageStandard>stdcpplatest</LanguageStandard>
+            <ForcedIncludeFiles>Pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+        </ClCompile>
+        <Link>
+            <SubSystem>Console</SubSystem>
+            <GenerateDebugInformation>true</GenerateDebugInformation>
+        </Link>
+    </ItemDefinitionGroup>
+    <ItemDefinitionGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|x64&apos;">
+        <ClCompile>
+            <WarningLevel>Level3</WarningLevel>
+            <FunctionLevelLinking>true</FunctionLevelLinking>
+            <IntrinsicFunctions>true</IntrinsicFunctions>
+            <SDLCheck>true</SDLCheck>
+            <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_COMPONENTSYSTEM_BUILD;FL_MODULE;FL_COMPONENT;MACRO_#ProjectName#</PreprocessorDefinitions>
+            <ConformanceMode>true</ConformanceMode>
+            <PrecompiledHeader>Use</PrecompiledHeader>
+            <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+            <AdditionalIncludeDirectories>.\Src;$(SolutionDir);..\..\..\Library;$(SolutionDir)Src;$(SolutionDir)Src\Framework;$(SolutionDir)Src\Framework\ImGui;$(SolutionDir)Src\..\..\Library;..\..\Src\Framework\Resource\Audio\core\inc;..\..\Src\Framework\Resource\Audio\studio\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+            <LanguageStandard>stdcpplatest</LanguageStandard>
+            <ForcedIncludeFiles>Pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+        </ClCompile>
+        <Link>
+            <SubSystem>Console</SubSystem>
+            <GenerateDebugInformation>true</GenerateDebugInformation>
+            <AdditionalLibraryDirectories>$(SolutionDir)Src\Framework\Resource\Audio\core\lib\x64;$(SolutionDir)Src\Framework\Resource\Audio\studio\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+        </Link>
+        <PostBuildEvent>
+        </PostBuildEvent>
+    </ItemDefinitionGroup>
+    <ItemGroup>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imconfig.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\ImGuizmo.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui_impl_dx12.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui_impl_win32.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui_internal.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui_stdlib.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imstb_rectpack.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imstb_textedit.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imstb_truetype.h"/>
+        <ClInclude Include="..\..\Src\Framework\ImGui\ja_glyph_ranges.h"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui.cpp"/>
+        <ClCompile Include="..\..\Src\Framework\ImGui\ImGuizmo.cpp"/>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_demo.cpp"/>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_draw.cpp"/>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_impl_dx12.cpp"/>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_impl_win32.cpp"/>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_stdlib.cpp"/>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_tables.cpp"/>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_widgets.cpp"/>
+        <None Include="..\..\ScriptModule\#ProjectName#\#ProjectName#.cxx"/>
+        <ClCompile Include="Src\Pch.cc">
+            <PrecompiledHeader Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|Win32&apos;">Create</PrecompiledHeader>
+            <PrecompiledHeader Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|Win32&apos;">Create</PrecompiledHeader>
+            <PrecompiledHeader Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|x64&apos;">Create</PrecompiledHeader>
+            <PrecompiledHeader Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|x64&apos;">Create</PrecompiledHeader>
+        </ClCompile>
+    </ItemGroup>
+    <ItemGroup>
+        <None Include="packages.config"/>
+    </ItemGroup>
+    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
+    <ImportGroup Label="ExtensionTargets">
+        <Import Project="..\..\packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets" Condition="Exists(&apos;..\..\packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets&apos;)"/>
+        <Import Project="..\..\packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets" Condition="Exists(&apos;..\..\packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets&apos;)"/>
+        <Import Project="..\..\packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets" Condition="Exists(&apos;..\..\packages\directxtex_uwp.2025.7.10.1\build\native\directxtex_uwp.targets&apos;)"/>
+    </ImportGroup>
+    <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+        <PropertyGroup>
+            <ErrorText>このプロジェクトは、このコンピューター上にない NuGet パッケージを参照しています。それらのパッケージをダウンロードするには、[NuGet パッケージの復元] を使用します。詳細については、http://go.microsoft.com/fwlink/?LinkID=322105 を参照してください。見つからないファイルは {0} です。</ErrorText>
+        </PropertyGroup>
+        <Error Condition="!Exists(&apos;..\..\packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets&apos;)" Text="$([System.String]::Format(&apos;$(ErrorText)&apos;, &apos;..\..\packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets&apos;))"/>
+        <Error Condition="!Exists(&apos;..\..\packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets&apos;)" Text="$([System.String]::Format(&apos;$(ErrorText)&apos;, &apos;..\..\packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets&apos;))"/>
+        <Error Condition="!Exists(&apos;..\..\packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets&apos;)" Text="$([System.String]::Format(&apos;$(ErrorText)&apos;, &apos;..\..\packages\directxtex_uwp.2025.7.10.1\build\native\directxtex_uwp.targets&apos;))"/>
+    </Target>
+</Project>

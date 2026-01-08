@@ -1,0 +1,125 @@
+static FlRuntimeAPI* g_runtimeApi { nullptr };
+
+extern "C" __declspec(dllexport) FlResult SetAPI(FlRuntimeAPI* api, void* ctx) noexcept
+{
+    try {
+        g_runtimeApi = api;
+        ImGui::SetCurrentContext(static_cast<ImGuiContext*>(ctx));
+
+        if (g_runtimeApi)
+        {
+            ComponentReflection reflection{
+                // Create
+                []() noexcept -> void* {
+                    try {
+                        auto p{ new #ProjectName#Component() };
+                        auto start{ [](void* component) noexcept {
+                        try {
+#ImpStart#
+                        }
+                        catch (...) {
+                            g_runtimeApi->ToLogError("Start: Throw to start component(%s).", "#ProjectName#Component");
+                            return;
+                        } } };
+                        start(p);
+                        return p;
+                    }
+                    catch (...) {
+                        g_runtimeApi->ToLogError("Create: Throw to create component(%s).", "#ProjectName#Component");
+                        return nullptr;
+                    }
+                },
+                // Destroy
+                [](void* component) noexcept {
+                    try {
+                        if (!component)
+                        {
+                            g_runtimeApi->ToLogError("Destroy: Null component(%s) pointer.", "#ProjectName#Component");
+                            return;
+                        }
+                        auto onDestroy{ [](void* component) noexcept {
+                            try {
+#ImpOnDestroy#
+                            }
+                            catch (...) {
+                                g_runtimeApi->ToLogError("OnDestroy: Throw to onDestroy component(%s).", "#ProjectName#Component");
+                                return;
+                            } } };
+                        onDestroy(component);
+                        auto c{ static_cast<#ProjectName#Component*>(component) };
+                        delete c;
+                    }
+                    catch (...) {
+                        g_runtimeApi->ToLogError("Destroy: Throw to destroy component(%s).", "#ProjectName#Component");
+                        return;
+                    }
+                },
+                // Copy
+                [](void* component) noexcept -> void* {
+                    try {
+                        if (!component)
+                        {
+                            g_runtimeApi->ToLogError("Copy: Null component(%s) pointer.", "#ProjectName#Component");
+                            return nullptr;
+                        }
+                        auto c{ static_cast<#ProjectName#Component*>(component) };
+                        return new #ProjectName#Component(*c);
+                    }
+                    catch (...) {
+                        g_runtimeApi->ToLogError("Copy: Throw to copy component(%s).", "#ProjectName#Component");
+                        return nullptr;
+                    }
+
+                },
+                // Serialize
+                [](void* component, nlohmann::json& json) noexcept {
+                    try {
+#ImpSerialize#
+                    }
+                    catch (...) {
+                        g_runtimeApi->ToLogError("Serialize: Throw to serialize logic(%s).", "#ProjectName#");
+                        return;
+                    }
+                },
+                // Deserialize
+                [](void* component, const nlohmann::json& json) noexcept {
+                    try {
+#ImpDeserialize#
+                    }
+                    catch (...) {
+                        g_runtimeApi->ToLogError("Deserialize: Throw to deserialize logic(%s).", "#ProjectName#");
+                        return;
+                    }
+                },
+                // RenderEditor
+                [](void* component, entityId id) noexcept {
+                    try {
+#ImpRenderEditor#
+                    }
+                    catch (...) {
+                        g_runtimeApi->ToLogError("RenderEditor: Throw to renderEditor logic(%s).", "#ProjectName#");
+                        return;
+                    }
+                },
+                // Update
+                [](void* component, entityId id, float deltaTime) noexcept {
+                    try {
+#ImpUpdate#
+                    }
+                    catch (...) {
+                        g_runtimeApi->ToLogError("Update: Throw to update logic(%s).", "#ProjectName#");
+                        return;
+                    }
+                }
+            };
+
+            g_runtimeApi->RegisterModule("#ProjectName#", &reflection);
+            g_runtimeApi->ToLogInfo("Regist: %s", "#ProjectName#");
+            return { FlResult::Fl_OK, __LINE__ };
+        }
+        else return { FlResult::Fl_FAIL, __LINE__ };
+    }
+    catch (...) {
+        return { FlResult::Fl_THROW, __LINE__ };
+    }
+}

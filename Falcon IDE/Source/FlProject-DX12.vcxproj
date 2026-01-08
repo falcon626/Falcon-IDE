@@ -1,0 +1,470 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.props" Condition="Exists('packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.props')" />
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Package|Win32">
+      <Configuration>Package</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Package|x64">
+      <Configuration>Package</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{d447eb13-5a71-4dab-ac0a-88e8530582f7}</ProjectGuid>
+    <RootNamespace>FlProjectDX12</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDynamicDebugging>true</UseDynamicDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDynamicDebugging>false</UseDynamicDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Package|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDynamicDebugging>false</UseDynamicDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDynamicDebugging>true</UseDynamicDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDynamicDebugging>false</UseDynamicDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Package|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDynamicDebugging>false</UseDynamicDebugging>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Package|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Package|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Package|x64'">
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_EXECUTION</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_EXECUTION</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Package|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_EXECUTION</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_EXECUTION</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <ForcedIncludeFiles>Pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalIncludeDirectories>.\Src;..\Library;..\FlProject-DX12\Src\Framework\ImGui;..\Library\FMOD_API\core\inc;..\Library\FMOD_API\studio\inc;..\Library\assimp\include;..\FlProject-DX12\StaticLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <UseDynamicDebugging>false</UseDynamicDebugging>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\Library\FMOD_API\core\lib\x64;..\Library\FMOD_API\studio\lib\x64;..\Library\assimp\build\lib\Debug;..\Library\assimp\build\lib\Release;..\FlProject-DX12\Src\Framework\System\Crypter\Debug;..\FlProject-DX12\Src\Framework\System\Crypter\Release;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Debug;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(ProjectDir)..\Library\assimp\build\lib\Debug\assimp-vc143-mtd.lib;$(ProjectDir)..\Library\assimp\build\lib\Release\assimp-vc143-mt.lib;$(ProjectDir)..\Library\FMOD_API\core\lib\x64\fmod_vc.lib;$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\fmodstudioL_vc.lib;$(ProjectDir)Src\Framework\System\Crypter\Debug\FlCrypter.lib;$(ProjectDir)Src\Framework\System\Crypter\Release\FlCrypter.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
+    </Link>
+    <PostBuildEvent>
+      <Command>xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Debug\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Release\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)..\Library\FMOD_API\core\lib\x64\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_EXECUTION</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <ForcedIncludeFiles>Pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalIncludeDirectories>.\Src;..\Library;.\Src\Framework\ImGui;..\Library\assimp\include;.\StaticLib;.\DynamicLib;Src\Framework\Resource\Audio\core\inc;Src\Framework\Resource\Audio\studio\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <UseDynamicDebugging>false</UseDynamicDebugging>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\Library\assimp\build\lib\Debug;..\Library\assimp\build\lib\Release;..\FlProject-DX12\Src\Framework\Resource\Audio\core\lib\x64;..\FlProject-DX12\Src\Framework\Resource\Audio\studio\lib\x64;..\FlProject-DX12\Src\Framework\System\Crypter\Release;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Debug;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(ProjectDir)..\Library\assimp\build\lib\Debug\assimp-vc143-mtd.lib;$(ProjectDir)..\Library\assimp\build\lib\Release\assimp-vc143-mt.lib;$(ProjectDir)..\Library\FMOD_API\core\lib\x64\fmod_vc.lib;$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\fmodstudioL_vc.lib;$(ProjectDir)Src\Framework\System\Crypter\Release\FlCrypter.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
+    </Link>
+    <PostBuildEvent>
+      <Command>xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Debug\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Release\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\core\lib\x64\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Package|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_EXECUTION</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <ForcedIncludeFiles>Pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalIncludeDirectories>.\Src;..\Library;..\FlProject-DX12\Src\Framework\ImGui;..\Library\assimp\include;..\FlProject-DX12\StaticLib;..\FlProject-DX12\DynamicLib;Src\Framework\Resource\Audio\core\inc;Src\Framework\Resource\Audio\studio\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <UseDynamicDebugging>false</UseDynamicDebugging>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\Library\assimp\build\lib\Debug;..\Library\assimp\build\lib\Release;..\FlProject-DX12\Src\Framework\Resource\Audio\core\lib\x64;..\FlProject-DX12\Src\Framework\Resource\Audio\studio\lib\x64;..\FlProject-DX12\Src\Framework\System\Crypter\Release;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Debug;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(ProjectDir)..\Library\assimp\build\lib\Debug\assimp-vc143-mtd.lib;$(ProjectDir)..\Library\assimp\build\lib\Release\assimp-vc143-mt.lib;$(ProjectDir)..\Library\FMOD_API\core\lib\x64\fmod_vc.lib;$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\fmodstudioL_vc.lib;$(ProjectDir)Src\Framework\System\Crypter\Release\FlCrypter.lib;$(ProjectDir)Src\Framework\System\ThumbnailGenerator\Debug\FlThumbnailGenerator.lib;$(ProjectDir)Src\Framework\System\ThumbnailGenerator\Release\FlThumbnailGenerator.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
+    </Link>
+    <PostBuildEvent>
+      <Command>xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Debug\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Release\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\core\lib\x64\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\Application\Application.cpp" />
+    <ClCompile Include="Src\Application\Scene\FlScene.cpp" />
+    <ClCompile Include="Src\Core\FlEntityComponentSystemKernel.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Animation\Animation.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Buffer\CBufferAllocater\CBufferAllocater.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Buffer\DepthStencil\DepthStencil.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Buffer\Texture\Texture.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\GraphicsDevice.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Heap\CBVSRVUAVHeap\CBVSRVUAVHeap.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Heap\DSVHeap\DSVHeap.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Heap\RTVHeap\RTVHeap.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Mesh\Mesh.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Model\Model.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Model\ModelLoader.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Shader\Pipeline\Pipeline.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Shader\RootSignature\RootSignature.cpp" />
+    <ClCompile Include="Src\Framework\Graphics\Shader\Shader.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\CascadingStyleSheets\FlEditorCascadingStyleSheets.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlECSInspectorAndHierarchy.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlListingEditor.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlDeveloperCommandPromptEditor.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlEditorAdministrator.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlEditorCamera.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlFileEditor.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlLogEditor.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlPythonMacroEditor.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlScriptModuleEditor.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\Editor\FlTerminalEditor.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\imgui.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\ImGuizmo.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\imgui_demo.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\imgui_draw.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\imgui_impl_win32.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\imgui_stdlib.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\imgui_tables.cpp" />
+    <ClCompile Include="Src\Framework\ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="Src\Framework\Math\FlCollisionShape.cpp" />
+    <ClCompile Include="Src\Framework\Module\RuntimeModule\Camera.cpp" />
+    <ClCompile Include="Src\Framework\Module\RuntimeModule\Collision.cpp" />
+    <ClCompile Include="Src\Framework\Module\RuntimeModule\ModelRender.cpp" />
+    <ClCompile Include="Src\Framework\Module\RuntimeModule\NameAndTag.cpp" />
+    <ClCompile Include="Src\Framework\Module\RuntimeModule\Transform.cpp" />
+    <ClCompile Include="Src\Framework\Module\ScriptModuleLoader\FlScriptModuleLoader.cpp" />
+    <ClCompile Include="Src\Framework\Resource\Audio\FlAudioManager.cpp" />
+    <ClCompile Include="Src\Framework\Resource\FlResourceAdministrator.cpp" />
+    <ClCompile Include="Src\Framework\Resource\Meta\FlMetaFileManager.cpp" />
+    <ClCompile Include="Src\Framework\Resource\Model\ModelManager.cpp" />
+    <ClCompile Include="Src\Framework\Resource\Shader\ShaderManager.cpp" />
+    <ClCompile Include="Src\Framework\Resource\Texture\FlTextureManager.cpp" />
+    <ClCompile Include="Src\Framework\System\CppParser\FlCppParser.cpp" />
+    <ClCompile Include="Src\Framework\System\FrameControl\FlFrameRateController.cpp" />
+    <ClCompile Include="Src\Framework\System\GUID\FlGUID.cpp" />
+    <ClCompile Include="Src\Framework\System\Multithread\FlMultithreadController.cpp" />
+    <ClCompile Include="Src\Framework\System\SolutionParser\FlSolutionParser.cpp" />
+    <ClCompile Include="Src\Framework\System\VisualStudioManager\FlVisualStudioManager.cpp" />
+    <ClCompile Include="Src\Framework\System\Watcher\FlFileWatcher.cpp" />
+    <ClCompile Include="Src\Framework\System\Window\Window.cpp" />
+    <ClCompile Include="Src\Framework\System\XMLParser\FlAutomaticFileAddSystem.cpp" />
+    <ClCompile Include="Src\Framework\System\XMLParser\tinyxml2.cpp" />
+    <ClCompile Include="Src\Framework\Unit\FlProcessCreater.ixx" />
+    <ClCompile Include="Src\Pch.cc">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Package|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Package|x64'">Pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Fl-DX12\FlProject-DX12\Src\Framework\Utility\FlUtilityContainer.hxx" />
+    <ClInclude Include="Src\Application\Application.h" />
+    <ClInclude Include="Src\Application\Scene\FlScene.h" />
+    <ClInclude Include="Src\Core\FlEntityComponentSystemKernel.h" />
+    <ClInclude Include="Src\Framework\FlFramework.hxx" />
+    <ClInclude Include="Src\Framework\Graphics\Animation\Animation.h" />
+    <ClInclude Include="Src\Framework\Graphics\Buffer\Buffer.h" />
+    <ClInclude Include="Src\Framework\Graphics\Buffer\CBufferAllocater\CBufferAllocater.h" />
+    <ClInclude Include="Src\Framework\Graphics\Buffer\CBufferAllocater\CBufferData\CBufferData.h" />
+    <ClInclude Include="Src\Framework\Graphics\Buffer\DepthStencil\DepthStencil.h" />
+    <ClInclude Include="Src\Framework\Graphics\Buffer\Texture\Texture.h" />
+    <ClInclude Include="Src\Framework\Graphics\Graphics.hxx" />
+    <ClInclude Include="Src\Framework\Graphics\GraphicsDevice.h" />
+    <ClInclude Include="Src\Framework\Graphics\Heap\CBVSRVUAVHeap\CBVSRVUAVHeap.h" />
+    <ClInclude Include="Src\Framework\Graphics\Heap\DSVHeap\DSVHeap.h" />
+    <ClInclude Include="Src\Framework\Graphics\Heap\Heap.h" />
+    <ClInclude Include="Src\Framework\Graphics\Heap\RTVHeap\RTVHeap.h" />
+    <ClInclude Include="Src\Framework\Graphics\Mesh\Mesh.h" />
+    <ClInclude Include="Src\Framework\Graphics\Mesh\MeshData\MeshData.h" />
+    <ClInclude Include="Src\Framework\Graphics\Model\Model.h" />
+    <ClInclude Include="Src\Framework\Graphics\Model\ModelLoader.h" />
+    <ClInclude Include="Src\Framework\Graphics\Shader\Pipeline\Pipeline.h" />
+    <ClInclude Include="Src\Framework\Graphics\Shader\RootSignature\RootSignature.h" />
+    <ClInclude Include="Src\Framework\Graphics\Shader\Shader.h" />
+    <ClInclude Include="Src\Framework\ImGui\CascadingStyleSheets\FlEditorCascadingStyleSheets.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlECSInspectorAndHierarchy.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlListingEditor.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlDeveloperCommandPromptEditor.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlEditorAdministrator.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlEditorCamera.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlFileEditor.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlLogEditor.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlPythonMacroEditor.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlScriptModuleEditor.h" />
+    <ClInclude Include="Src\Framework\ImGui\Editor\FlTerminalEditor.h" />
+    <ClInclude Include="Src\Framework\ImGui\imconfig.h" />
+    <ClInclude Include="Src\Framework\ImGui\imgui.h" />
+    <ClInclude Include="Src\Framework\ImGui\ImGuizmo.h" />
+    <ClInclude Include="Src\Framework\ImGui\imgui_impl_dx12.h" />
+    <ClInclude Include="Src\Framework\ImGui\imgui_impl_win32.h" />
+    <ClInclude Include="Src\Framework\ImGui\imgui_internal.h" />
+    <ClInclude Include="Src\Framework\ImGui\imgui_stdlib.h" />
+    <ClInclude Include="Src\Framework\ImGui\imstb_rectpack.h" />
+    <ClInclude Include="Src\Framework\ImGui\imstb_textedit.h" />
+    <ClInclude Include="Src\Framework\ImGui\imstb_truetype.h" />
+    <ClInclude Include="Src\Framework\ImGui\ja_glyph_ranges.h" />
+    <ClInclude Include="Src\Framework\Math\FlCollisionShape.h" />
+    <ClInclude Include="Src\Framework\Math\FlEasing.hpp" />
+    <ClInclude Include="Src\Framework\Math\FlTransform.hpp" />
+    <ClInclude Include="Src\Framework\Module\FlRunTimeAndDLLsCommon.h++" />
+    <ClInclude Include="Src\Framework\Module\FlRuntimeModuleGroup.hpp" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\Camera.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\Collision.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\ModelRender.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\NameAndTag.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\ResistCamera.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\ResistCollision.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\ResistModelRender.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\ResistNameAndTag.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\ResistTransform.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\Transform.h" />
+    <ClInclude Include="Src\Framework\Module\ScriptModuleLoader\FlScriptModuleLoader.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\core\inc\fmod.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\core\inc\fmod.hpp" />
+    <ClInclude Include="Src\Framework\Resource\Audio\core\inc\fmod_codec.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\core\inc\fmod_common.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\core\inc\fmod_dsp.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\core\inc\fmod_dsp_effects.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\core\inc\fmod_errors.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\core\inc\fmod_output.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\FlAudioManager.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\studio\inc\fmod_studio.h" />
+    <ClInclude Include="Src\Framework\Resource\Audio\studio\inc\fmod_studio.hpp" />
+    <ClInclude Include="Src\Framework\Resource\Audio\studio\inc\fmod_studio_common.h" />
+    <ClInclude Include="Src\Framework\Resource\BaseBasicResource\BaseBasicResourceManager.hpp" />
+    <ClInclude Include="Src\Framework\Resource\Binary\FlBinaryAccessor.hpp" />
+    <ClInclude Include="Src\Framework\Resource\Binary\FlBinaryManager.hpp" />
+    <ClInclude Include="Src\Framework\Resource\FlResourceAdministrator.h" />
+    <ClInclude Include="Src\Framework\Resource\Meta\FlMetaFileManager.h" />
+    <ClInclude Include="Src\Framework\Resource\Model\ModelManager.h" />
+    <ClInclude Include="Src\Framework\Resource\Shader\ShaderManager.h" />
+    <ClInclude Include="Src\Framework\Resource\Texture\FlTextureManager.h" />
+    <ClInclude Include="Src\Framework\System\CppParser\FlCppParser.h" />
+    <ClInclude Include="Src\Framework\System\Debugger\Console\Console.hpp" />
+    <ClInclude Include="Src\Framework\System\Debugger\Logger\FlDebugLogger.hpp" />
+    <ClInclude Include="Src\Framework\System\FrameControl\FlFrameRateController.h" />
+    <ClInclude Include="Src\Framework\System\GUID\FlGUID.h" />
+    <ClInclude Include="Src\Framework\System\Input\FlInput.h" />
+    <ClInclude Include="Src\Framework\System\Multithread\FlMultithreadController.h" />
+    <ClInclude Include="Src\Framework\System\SolutionParser\FlSolutionParser.h" />
+    <ClInclude Include="Src\Framework\System\Timer\FlChronus.hpp" />
+    <ClInclude Include="Src\Framework\System\VisualStudioManager\FlVisualStudioManager.h" />
+    <ClInclude Include="Src\Framework\System\Watcher\FlFileWatcher.h" />
+    <ClInclude Include="Src\Framework\System\Window\Window.h" />
+    <ClInclude Include="Src\Framework\System\XMLParser\FlAutomaticFileAddSystem.h" />
+    <ClInclude Include="Src\Framework\System\XMLParser\tinyxml2.h" />
+    <ClInclude Include="Src\Framework\Utility\FlUtilityJson.hxx" />
+    <ClInclude Include="Src\Framework\Utility\FlUtilityDefault.hxx" />
+    <ClInclude Include="Src\Framework\Utility\FlUtilityEasingAnimator.hpp" />
+    <ClInclude Include="Src\Framework\Utility\FlUtilityFilePath.hpp" />
+    <ClInclude Include="Src\Framework\Utility\FlUtilityMath.hxx" />
+    <ClInclude Include="Src\Framework\Utility\FlUtilityString.hxx" />
+    <ClInclude Include="Src\Framework\Utility\Utility.hxx" />
+    <ClInclude Include="Src\Pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\Microsoft.XAudio2.Redist.1.2.13\build\native\Microsoft.XAudio2.Redist.targets" Condition="Exists('packages\Microsoft.XAudio2.Redist.1.2.13\build\native\Microsoft.XAudio2.Redist.targets')" />
+    <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
+    <Import Project="packages\directxtk12_desktop_2019.2025.10.28.1\build\native\directxtk12_desktop_2019.targets" Condition="Exists('packages\directxtk12_desktop_2019.2025.10.28.1\build\native\directxtk12_desktop_2019.targets')" />
+    <Import Project="packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets" Condition="Exists('packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets')" />
+    <Import Project="packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets" Condition="Exists('packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets')" />
+    <Import Project="packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets" Condition="Exists('packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets')" />
+    <Import Project="packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.targets" Condition="Exists('packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>このプロジェクトは、このコンピューター上にない NuGet パッケージを参照しています。それらのパッケージをダウンロードするには、[NuGet パッケージの復元] を使用します。詳細については、http://go.microsoft.com/fwlink/?LinkID=322105 を参照してください。見つからないファイルは {0} です。</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\Microsoft.XAudio2.Redist.1.2.13\build\native\Microsoft.XAudio2.Redist.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.XAudio2.Redist.1.2.13\build\native\Microsoft.XAudio2.Redist.targets'))" />
+    <Error Condition="!Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets'))" />
+    <Error Condition="!Exists('packages\directxtk12_desktop_2019.2025.10.28.1\build\native\directxtk12_desktop_2019.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk12_desktop_2019.2025.10.28.1\build\native\directxtk12_desktop_2019.targets'))" />
+    <Error Condition="!Exists('packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets'))" />
+    <Error Condition="!Exists('packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets'))" />
+    <Error Condition="!Exists('packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.props'))" />
+    <Error Condition="!Exists('packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.targets'))" />
+  </Target>
+</Project>

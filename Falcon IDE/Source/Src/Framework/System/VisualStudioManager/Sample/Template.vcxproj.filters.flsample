@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <ItemGroup>
+        <Filter Include="Src">
+            <UniqueIdentifier>{#GUID#}</UniqueIdentifier>
+        </Filter>
+        <Filter Include="Src\#ProjectName#">
+            <UniqueIdentifier>{#GUID#}</UniqueIdentifier>
+        </Filter>
+        <Filter Include="Src\ImGui">
+            <UniqueIdentifier>{#GUID#}</UniqueIdentifier>
+        </Filter>
+    </ItemGroup>
+    <ItemGroup>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imconfig.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui_impl_dx12.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui_impl_win32.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui_internal.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imgui_stdlib.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\ImGuizmo.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imstb_rectpack.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imstb_textedit.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\imstb_truetype.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+        <ClInclude Include="..\..\Src\Framework\ImGui\ja_glyph_ranges.h">
+            <Filter>Src\ImGui</Filter>
+        </ClInclude>
+    </ItemGroup>
+    <ItemGroup>
+        <None Include="..\..\ScriptModule\#ProjectName#\#ProjectName#.cxx">
+            <Filter>Src\#ProjectName#</Filter>
+        </None>
+        <ClCompile Include="Src\Pch.cc">
+            <Filter>Src</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_demo.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_draw.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_impl_dx12.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_impl_win32.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_stdlib.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_tables.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\imgui_widgets.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+        <ClCompile Include="..\..\Src\Framework\ImGui\ImGuizmo.cpp">
+            <Filter>Src\ImGui</Filter>
+        </ClCompile>
+    </ItemGroup>
+    <ItemGroup>
+        <None Include="packages.config"/>
+    </ItemGroup>
+</Project>
