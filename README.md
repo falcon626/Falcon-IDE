@@ -25,7 +25,7 @@
 
 1. `Falcon-IDE.sln` を Visual Studio で開くか、直接プロジェクトファイル（例: `.vcxproj`）を開いてください。
 2. __Solution Explorer__ でビルド構成を選択（`Debug` / `Release`）します。必要なら __Build > Configuration Manager__ でプラットフォームや設定を調整してください。
-3. 各プロジェクトのプロパティを確認し、__Project Properties__ > __C/C++__ > __Language__ で `C++20` が選択されていることを確認してください。
+3. 各プロジェクトのプロパティを確認し、__Project Properties__ > __C/C++__ > __Language__ で `C++23` が選択されていることを確認してください。
 4. ビルドは __Build > Build Solution__ を実行します。
 
 コマンドラインから MSBuild を使う場合:
