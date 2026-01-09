@@ -1,8 +1,6 @@
 #共通無視フォルダ
 [Dd]ebug/
 [Rr]elease/
-packages/
-Library/
 .vs
 
 #共通無視拡張子
