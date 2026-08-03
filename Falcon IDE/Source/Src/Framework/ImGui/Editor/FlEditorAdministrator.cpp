@@ -63,15 +63,15 @@ bool FlEditorAdministrator::Initialize(const HWND hwnd, const int32_t windowW, c
 	m_windowW = windowW;
 	m_windowH = windowH;
 
-	m_upLogEditor					= std::make_unique<FlLogEditor>();
-	m_upFileEditor					= std::make_unique<FlFileEditor>();
-	m_upListingEditor				= std::make_unique<FlListingEditor>();
-	m_upTerminalEditor				= std::make_unique<FlTerminalEditor>();
-	m_upScriptModuleEditor			= std::make_unique<FlScriptModuleEditor>(*m_upTerminalEditor);
-	m_upPythonMacroEditor			= std::make_unique<FlPythonMacroEditor>(*m_upTerminalEditor);
-	m_upDevCmdEditor				= std::make_unique<FlDeveloperCommandPromptEditor>("FlProject-DX12.sln", *m_upTerminalEditor);
+	m_upLogEditor					   = std::make_unique<FlLogEditor>();
+	m_upFileEditor					   = std::make_unique<FlFileEditor>();
+	m_upListingEditor				   = std::make_unique<FlListingEditor>();
+	m_upTerminalEditor				   = std::make_unique<FlTerminalEditor>();
+	m_upScriptModuleEditor			   = std::make_unique<FlScriptModuleEditor>(*m_upTerminalEditor);
+	m_upPythonMacroEditor			   = std::make_unique<FlPythonMacroEditor>(*m_upTerminalEditor);
+	m_upDevCmdEditor				   = std::make_unique<FlDeveloperCommandPromptEditor>("FlProject-DX12.slnx", *m_upTerminalEditor);
 	m_upECSInspectorAndHierarchyEditor = std::make_unique<FlECSInspectorAndHierarchy>();
-	m_upEditorCamera				= std::make_unique<FlEditorCamera>(windowW, windowH);
+	m_upEditorCamera				   = std::make_unique<FlEditorCamera>(static_cast<float>(windowW), static_cast<float>(windowH));
 
 	m_wpFrameRateController = wpFrame;
 

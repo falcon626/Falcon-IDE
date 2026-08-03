@@ -1,0 +1,12 @@
+<Solution>
+    <Configurations>
+        <Platform Name="Any CPU" />
+        <Platform Name="x64" />
+        <Platform Name="x86" />
+    </Configurations>
+    <Project Path="DynamicLib/Player/Player.vcxproj" Id="0be487be-9a4b-41eb-8526-58ece42932f6" />
+    <Project Path="DynamicLib/Reincarnation/Reincarnation.vcxproj" Id="54ffaf75-4bf8-48c2-8fc4-596c62f432b4" />
+    <Project Path="DynamicLib/Test/Test.vcxproj" Id="65de61b6-f9de-407f-a805-9577c8ffd789" />
+    <Project Path="FlProject-DX12.vcxproj" Id="d447eb13-5a71-4dab-ac0a-88e8530582f7" />
+    <Project Path="StaticLib/FlCrypter/FlCrypter.vcxproj" Id="f53200f7-3b83-49a0-9407-ed490666ec07" />
+</Solution>

@@ -55,6 +55,16 @@ private:
         const std::string& name
         ) noexcept;
 
+    bool AddProjectToSolutionSlnx(
+        const std::filesystem::path& slnx,
+        const std::filesystem::path& projPath
+    ) noexcept;
+
+    bool RemoveProjectFromSolutionSlnx(
+        const std::filesystem::path& slnx,
+        const std::filesystem::path& projPath
+    ) noexcept;
+
     // -----------------------------------------------
     // テキスト置換（ファイル単位）
     // -----------------------------------------------

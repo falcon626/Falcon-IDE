@@ -8,10 +8,10 @@ typedef struct PlayerComponent
 }PlayerComponent;
 
 /// <summary>
-/// コンポーネントCreate時の処理
+/// コンポ�EネンチEreate時�E処琁E
 /// </summary>
 /// <param name="component">ComponentInstancePointer</param>
-/// <returns>無し</returns>
+/// <returns>無ぁE/returns>
 void Start(void* component) noexcept
 {
     // <Never Change>
@@ -23,14 +23,14 @@ void Start(void* component) noexcept
     auto c{ static_cast<PlayerComponent*>(component) };
     // </Never Change>
 
-    // TODO: スタート処理実装
+    // TODO: スタート�E琁E��裁E
 }
 
 /// <summary>
-/// コンポーネントDestroy時の処理
+/// コンポ�EネンチEestroy時�E処琁E
 /// </summary>
 /// <param name="component">ComponentInstancePointer</param>
-/// <returns>無し</returns>
+/// <returns>無ぁE/returns>
 void OnDestroy(void* component) noexcept
 {
     // <Never Change>
@@ -42,15 +42,15 @@ void OnDestroy(void* component) noexcept
     auto c{ static_cast<PlayerComponent*>(component) };
     // </Never Change>
 
-    // TODO: オンデストロイ処理実装
+    // TODO: オンチE��トロイ処琁E��裁E
 }
 
 /// <summary>
-/// Componentデータの保存処理
+/// ComponentチE�Eタの保存�E琁E
 /// </summary>
 /// <param name="component">ComponentInstancePointer</param>
 /// <param name="json">nlohmann::jsonの保存用変数</param>
-/// <returns>無し</returns>
+/// <returns>無ぁE/returns>
 void Serialize(void* component, nlohmann::json& json) noexcept
 {
     // <Never Change>
@@ -69,11 +69,11 @@ void Serialize(void* component, nlohmann::json& json) noexcept
 }
 
 /// <summary>
-/// Componentデータの読込処理
+/// ComponentチE�Eタの読込処琁E
 /// </summary>
 /// <param name="component">ComponentInstancePointer</param>
 /// <param name="json">nlohmann::jsonの読込用定数</param>
-/// <returns>無し</returns>
+/// <returns>無ぁE/returns>
 void Deserialize(void* component, const nlohmann::json& json) noexcept
 {
     // <Never Change>
@@ -95,11 +95,11 @@ void Deserialize(void* component, const nlohmann::json& json) noexcept
 }
 
 /// <summary>
-/// エディタ処理
+/// エチE��タ処琁E
 /// </summary>
 /// <param name="component">ComponentInstancePointer</param>
-/// <param name="id">uint32_t型の現在処理中のEntity</param>
-/// <returns>無し</returns>
+/// <param name="id">uint32_t型�E現在処琁E��のEntity</param>
+/// <returns>無ぁE/returns>
 void RenderEditor(void* component, entityId id) noexcept
 {
     // <Never Change>
@@ -116,12 +116,12 @@ void RenderEditor(void* component, entityId id) noexcept
 }
 
 /// <summary>
-/// Componentデータの更新ロジック
+/// ComponentチE�Eタの更新ロジチE��
 /// </summary>
 /// <param name="component">ComponentInstancePointer</param>
-/// <param name="id">uint32_t型の現在処理中のEntity</param>
-/// <param name="deltaTime">デルタタイム</param>
-/// <returns>無し</returns>
+/// <param name="id">uint32_t型�E現在処琁E��のEntity</param>
+/// <param name="deltaTime">チE��タタイム</param>
+/// <returns>無ぁE/returns>
 void Update(void* component, entityId id, float deltaTime) noexcept
 {
     // <Never Change>

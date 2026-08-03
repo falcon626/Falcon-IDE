@@ -6,14 +6,6 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Package|Win32">
-      <Configuration>Package</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Package|x64">
-      <Configuration>Package</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
@@ -50,14 +42,6 @@
     <CharacterSet>Unicode</CharacterSet>
     <UseDynamicDebugging>false</UseDynamicDebugging>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Package|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v145</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-    <UseDynamicDebugging>false</UseDynamicDebugging>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -66,14 +50,6 @@
     <UseDynamicDebugging>true</UseDynamicDebugging>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v145</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-    <UseDynamicDebugging>false</UseDynamicDebugging>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Package|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
@@ -92,23 +68,14 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Package|Win32'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Package|x64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Package|x64'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -125,7 +92,7 @@
       <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -142,26 +109,7 @@
       <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Package|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_EXECUTION</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -177,7 +125,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>.\Src;..\Library;..\FlProject-DX12\Src\Framework\ImGui;..\Library\FMOD_API\core\inc;..\Library\FMOD_API\studio\inc;..\Library\assimp\include;..\FlProject-DX12\StaticLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\Src;..\Library;.\Src\Framework\ImGui;..\Library\assimp\include;.\StaticLib;.\DynamicLib;.\Src\Framework\Resource\Audio\core\inc;.\Src\Framework\Resource\Audio\studio\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <UseDynamicDebugging>false</UseDynamicDebugging>
@@ -185,15 +133,14 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\Library\FMOD_API\core\lib\x64;..\Library\FMOD_API\studio\lib\x64;..\Library\assimp\build\lib\Debug;..\Library\assimp\build\lib\Release;..\FlProject-DX12\Src\Framework\System\Crypter\Debug;..\FlProject-DX12\Src\Framework\System\Crypter\Release;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Debug;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(ProjectDir)..\Library\assimp\build\lib\Debug\assimp-vc143-mtd.lib;$(ProjectDir)..\Library\assimp\build\lib\Release\assimp-vc143-mt.lib;$(ProjectDir)..\Library\FMOD_API\core\lib\x64\fmod_vc.lib;$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\fmodstudioL_vc.lib;$(ProjectDir)Src\Framework\System\Crypter\Debug\FlCrypter.lib;$(ProjectDir)Src\Framework\System\Crypter\Release\FlCrypter.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\Library\assimp\build\lib\Debug;..\FlProject-DX12\Src\Framework\Resource\Audio\core\lib\x64;..\FlProject-DX12\Src\Framework\Resource\Audio\studio\lib\x64;..\FlProject-DX12\Src\Framework\System\Crypter\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(ProjectDir)..\Library\assimp\build\lib\Debug\assimp-vc143-mtd.lib;$(ProjectDir)Src\Framework\Resource\Audio\core\lib\x64\fmod_vc.lib;$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\fmodstudioL_vc.lib;$(ProjectDir)Src\Framework\System\Crypter\Debug\FlCrypter.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Debug\*.dll" "$(OutDir)"
-xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Release\*.dll" "$(OutDir)"
-xcopy /y /d "$(ProjectDir)..\Library\FMOD_API\core\lib\x64\*.dll" "$(OutDir)"
-xcopy /y /d "$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\*.dll" "$(OutDir)"</Command>
+xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\core\lib\x64\*.dll" "$(OutDir)"
+xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -208,7 +155,7 @@ xcopy /y /d "$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\*.dll" "$(OutDir)"<
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>.\Src;..\Library;.\Src\Framework\ImGui;..\Library\assimp\include;.\StaticLib;.\DynamicLib;Src\Framework\Resource\Audio\core\inc;Src\Framework\Resource\Audio\studio\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\Src;..\Library;.\Src\Framework\ImGui;..\Library\assimp\include;.\StaticLib;.\DynamicLib;.\Src\Framework\Resource\Audio\core\inc;.\Src\Framework\Resource\Audio\studio\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <UseDynamicDebugging>false</UseDynamicDebugging>
@@ -219,47 +166,12 @@ xcopy /y /d "$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\*.dll" "$(OutDir)"<
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\Library\assimp\build\lib\Debug;..\Library\assimp\build\lib\Release;..\FlProject-DX12\Src\Framework\Resource\Audio\core\lib\x64;..\FlProject-DX12\Src\Framework\Resource\Audio\studio\lib\x64;..\FlProject-DX12\Src\Framework\System\Crypter\Release;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Debug;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(ProjectDir)..\Library\assimp\build\lib\Debug\assimp-vc143-mtd.lib;$(ProjectDir)..\Library\assimp\build\lib\Release\assimp-vc143-mt.lib;$(ProjectDir)..\Library\FMOD_API\core\lib\x64\fmod_vc.lib;$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\fmodstudioL_vc.lib;$(ProjectDir)Src\Framework\System\Crypter\Release\FlCrypter.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\Library\assimp\build\lib\Release;..\FlProject-DX12\Src\Framework\Resource\Audio\core\lib\x64;..\FlProject-DX12\Src\Framework\Resource\Audio\studio\lib\x64;..\FlProject-DX12\Src\Framework\System\Crypter\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(ProjectDir)..\Library\assimp\build\lib\Release\assimp-vc143-mt.lib;$(ProjectDir)Src\Framework\Resource\Audio\core\lib\x64\fmod_vc.lib;$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\fmodstudioL_vc.lib;$(ProjectDir)Src\Framework\System\Crypter\Release\FlCrypter.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Debug\*.dll" "$(OutDir)"
-xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Release\*.dll" "$(OutDir)"
-xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\core\lib\x64\*.dll" "$(OutDir)"
-xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(OutDir)"</Command>
-    </PostBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Package|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);FL_EXECUTION</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <ForcedIncludeFiles>Pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>.\Src;..\Library;..\FlProject-DX12\Src\Framework\ImGui;..\Library\assimp\include;..\FlProject-DX12\StaticLib;..\FlProject-DX12\DynamicLib;Src\Framework\Resource\Audio\core\inc;Src\Framework\Resource\Audio\studio\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <UseDynamicDebugging>false</UseDynamicDebugging>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-    </ClCompile>
-    <Link>
-      <SubSystem>Windows</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\Library\assimp\build\lib\Debug;..\Library\assimp\build\lib\Release;..\FlProject-DX12\Src\Framework\Resource\Audio\core\lib\x64;..\FlProject-DX12\Src\Framework\Resource\Audio\studio\lib\x64;..\FlProject-DX12\Src\Framework\System\Crypter\Release;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Debug;..\FlProject-DX12\Src\Framework\System\ThumbnailGenerator\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(ProjectDir)..\Library\assimp\build\lib\Debug\assimp-vc143-mtd.lib;$(ProjectDir)..\Library\assimp\build\lib\Release\assimp-vc143-mt.lib;$(ProjectDir)..\Library\FMOD_API\core\lib\x64\fmod_vc.lib;$(ProjectDir)..\Library\FMOD_API\studio\lib\x64\fmodstudioL_vc.lib;$(ProjectDir)Src\Framework\System\Crypter\Release\FlCrypter.lib;$(ProjectDir)Src\Framework\System\ThumbnailGenerator\Debug\FlThumbnailGenerator.lib;$(ProjectDir)Src\Framework\System\ThumbnailGenerator\Release\FlThumbnailGenerator.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
-    </Link>
-    <PostBuildEvent>
-      <Command>xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Debug\*.dll" "$(OutDir)"
-xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Release\*.dll" "$(OutDir)"
+      <Command>xcopy /y /d "$(ProjectDir)..\Library\assimp\build\bin\Release\*.dll" "$(OutDir)"
 xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\core\lib\x64\*.dll" "$(OutDir)"
 xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
@@ -329,10 +241,8 @@ xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(
     <ClCompile Include="Src\Pch.cc">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Package|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pch.h</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Package|x64'">Pch.h</PrecompiledHeaderFile>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

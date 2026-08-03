@@ -2,7 +2,7 @@
 #include "../../Core/FlEntityComponentSystemKernel.h"
 
 FlScriptModuleEditor::FlScriptModuleEditor(FlTerminalEditor& terminal)
-    : m_manager{ std::make_unique<FlVisualStudioProjectManager>("FlProject-DX12.sln")}
+    : m_manager{ std::make_unique<FlVisualStudioProjectManager>("FlProject-DX12.slnx")}
     , m_meta{ std::make_unique<FlMetaFileManager>() }
     , m_upTicker{ std::make_unique<FlChronus::Ticker>(FlChronus::sec(Def::UIntOne)) }
     , m_terminal{ terminal }

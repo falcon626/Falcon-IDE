@@ -1,7 +1,5 @@
 #pragma once
 
-class GraphicsDevice;
-
 #include "GraphicsDevice.h"
 
 // <Heap:ƒq[ƒv>

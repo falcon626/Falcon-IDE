@@ -153,5 +153,4 @@ void Update(void* component, entityId id, float deltaTime) noexcept
     
     pos += c->m_move * deltaTime;
     tc->m_transform->SetLocalPosition(pos);
-
 }

@@ -1,0 +1,25 @@
+{
+    "Guid": "1f9dcb9b-07e3-4305-8745-3bcc9e8dbbca",
+    "assetPath": [
+        83,
+        99,
+        114,
+        105,
+        112,
+        116,
+        77,
+        111,
+        100,
+        117,
+        108,
+        101
+    ],
+    "children": [
+        "Player",
+        "Reincarnation"
+    ],
+    "isChanged": true,
+    "isDirectory": true,
+    "lastUpdated": "2026-03-06T00:23:49.8449119Z",
+    "loadFlag": false
+}

@@ -13,11 +13,16 @@ class FlSolutionParser
 public:
     FlSolutionParser() = default;
     explicit FlSolutionParser(const std::filesystem::path& slnPath) {
-        Load(slnPath);
+        if (slnPath.extension().string() == ".slnx")
+            LoadSlnx(slnPath);
+        else if(slnPath.extension().string() == ".sln")
+            Load(slnPath);
     }
 
     // .sln ファイルを読み込んでプロジェクトを解析
     bool Load(const std::filesystem::path& slnPath);
+	// .slnx ファイルを読み込んでプロジェクトを解析
+    bool LoadSlnx(const std::filesystem::path& slnPath);
 
     // プロジェクトリストを取得
     const std::vector<FlProjectInfo>& GetProjects() const { return m_projects; }

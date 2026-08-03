@@ -1,4 +1,5 @@
 #include "FlSolutionParser.h"
+#include "../XMLParser/tinyxml2.h"
 
 bool FlSolutionParser::Load(const std::filesystem::path& slnPath)
 {
@@ -58,6 +59,65 @@ bool FlSolutionParser::Load(const std::filesystem::path& slnPath)
     return !m_projects.empty();
 }
 
+bool FlSolutionParser::LoadSlnx(const std::filesystem::path& slnPath)
+{
+	m_projects.clear();
+	m_solutionPath = slnPath;
+
+	tinyxml2::XMLDocument doc;
+	if (doc.LoadFile(slnPath.string().c_str()) != tinyxml2::XML_SUCCESS)
+	{
+		return false;
+	}
+
+	// ルート要素 <Solution> を取得
+	tinyxml2::XMLElement* root = doc.FirstChildElement("Solution");
+	if (!root) return false;
+
+	// 再帰的にプロジェクトを検索するラムダ関数
+	std::function<void(tinyxml2::XMLElement*)> parseElement = [&](tinyxml2::XMLElement* parent) {
+		for (tinyxml2::XMLElement* el = parent->FirstChildElement(); el != nullptr; el = el->NextSiblingElement())
+		{
+			std::string tagName = el->Value();
+
+			if (tagName == "Project")
+			{
+				const char* pathAttr = el->Attribute("Path");
+				if (pathAttr)
+				{
+					std::string relPath = pathAttr;
+					// バックスラッシュをスラッシュに変換
+					std::replace(relPath.begin(), relPath.end(), '\\', '/');
+
+					std::filesystem::path projectPath = m_solutionPath.parent_path() / relPath;
+
+					// 拡張子チェック
+					std::string ext = projectPath.extension().string();
+					std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+					if (ext == ".vcxproj")
+					{
+						FlProjectInfo info;
+						// .slnxではファイル名がプロジェクト名になるのが標準的
+						info.name = projectPath.stem().string();
+						info.relativePath = relPath;
+						info.fullPath = std::filesystem::absolute(projectPath).lexically_normal();
+						m_projects.push_back(info);
+					}
+				}
+			}
+			else if (tagName == "Folder")
+			{
+				// Folderの中にもProjectや別のFolderがある可能性があるため再帰
+				parseElement(el);
+			}
+		}
+		};
+
+	parseElement(root);
+
+	return !m_projects.empty();
+}
 
 const FlProjectInfo* FlSolutionParser::FindProjectByName(const std::string& name) const
 {
