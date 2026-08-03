@@ -4,6 +4,7 @@
 .vs
 .codex
 .serena
+graphify-out
 
 #共通無視拡張子
 *.tlog
