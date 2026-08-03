@@ -131,7 +131,6 @@ private:
 
 	ComPtr<ID3D12DescriptorHeap>				   m_pImGuiSrvHeap;				    // ImGuiのSRVヒープへのポインタ
 
-	std::unique_ptr<Texture>					   m_sceneTex;					    // シーン用テクスチャ
 	std::unique_ptr<FlLogEditor>				   m_upLogEditor;				    // ログエディタのインスタンス
 	std::unique_ptr<FlFileEditor>				   m_upFileEditor;				    // ファイルエディタのインスタンス
 	std::unique_ptr<FlListingEditor>			   m_upListingEditor;				// リスト列挙エディタのインスタンス
@@ -150,8 +149,6 @@ private:
 	D3D12_GPU_DESCRIPTOR_HANDLE m_gameViewGPUHandle{}; // ゲームビューのSRV用GPUハンドル
 
 	ImGuiContext* m_pImGuiContext{ nullptr }; // ImGuiコンテキストのポインタ
-	D3D12_GPU_DESCRIPTOR_HANDLE m_sceneTexImGuiHandle{};
-
 	int32_t m_windowW{};
 	int32_t m_windowH{};
 

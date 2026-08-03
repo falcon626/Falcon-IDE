@@ -21,8 +21,8 @@ public:
     FlScriptModuleLoader(const std::string& root);
     ~FlScriptModuleLoader()
     {
-        UnloadAll();
         if (m_upWatcher) m_upWatcher->Stop();
+        UnloadAll();
     }
 
     void Update() noexcept;
@@ -35,7 +35,9 @@ private:
     std::vector<ScriptModule> m_modules;
 
     std::unique_ptr<FlFileWatcher> m_upWatcher;
+    std::mutex m_pendingMutex;
     std::unordered_map<std::string, PendingReload> m_pendingReloads;
+    std::unordered_map<std::string, std::filesystem::path> m_pendingDeletes;
 
     void ScanModules() noexcept;
     void LoadAll() noexcept;

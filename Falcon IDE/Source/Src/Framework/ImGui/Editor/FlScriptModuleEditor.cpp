@@ -115,10 +115,15 @@ void FlScriptModuleEditor::Update() noexcept
         auto projPath{ m_targetDir / projName / (projName.string() + ".vcxproj") };
  
         // vcvarsall.bat ÇåƒÇ—èoÇµÇƒÉrÉãÉhä¬ã´Çèâä˙âª
+#ifdef _DEBUG
+        constexpr auto buildConfiguration = "Debug";
+#else
+        constexpr auto buildConfiguration = "Release";
+#endif
         std::string command =
             "call \"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x64 && msbuild \"" +
             std::filesystem::absolute(projPath).lexically_normal().string() +
-            "\" /p:Configuration=Release"
+            "\" /p:Configuration=" + buildConfiguration +
             " /p:Platform=x64" +
             " /p:SolutionDir=\"" + solutionDir + "\"" +
             " /t:Build";
@@ -198,12 +203,17 @@ void FlScriptModuleEditor::RenderPopup()
             FlEntityComponentSystemKernel::Instance().ClearComponent(std::filesystem::path(projName).stem().string());
 
             auto dir{ m_targetDir / projName };
-            auto dllPath{"Src/Framework/Module/ScriptDLLs/" + projName};
             auto upFile{ std::make_unique<FlFileWatcher>() };
-            
-            if(!upFile->RemDirectory(dllPath))
-                FlEditorAdministrator::Instance().GetLogger()->AddErrorLog(
-					"Failed to delete DLL directory: %s", dllPath.c_str());
+
+            for (const auto& dllPath : {
+                "Src/Framework/Module/ScriptDLLs/Debug/" + projName,
+                "Src/Framework/Module/ScriptDLLs/Release/" + projName,
+                "Src/Framework/Module/ScriptDLLs/" + projName })
+            {
+                if (std::filesystem::exists(dllPath) && !upFile->RemDirectory(dllPath))
+                    FlEditorAdministrator::Instance().GetLogger()->AddErrorLog(
+                        "Failed to delete DLL directory: %s", dllPath.c_str());
+            }
             if(!upFile->RemDirectory(dir))
 				FlEditorAdministrator::Instance().GetLogger()->AddErrorLog(
 					"Failed to delete project directory: %s", dir.c_str());

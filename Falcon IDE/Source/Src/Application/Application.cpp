@@ -89,7 +89,11 @@ Application::~Application()
 
 void Application::Update()
 {
-	GraphicsDevice::Instance().PreDraw();
+	if (!GraphicsDevice::Instance().PreDraw())
+	{
+		End();
+		return;
+	}
 
 	Shader::Instance().Begin();
 
@@ -99,7 +103,11 @@ void Application::Update()
 
 	FlEditorAdministrator::Instance().Update();
 
-	GraphicsDevice::Instance().ScreenFlip();
+	if (!GraphicsDevice::Instance().ScreenFlip())
+	{
+		End();
+		return;
+	}
 }
 
 void Application::Execute()

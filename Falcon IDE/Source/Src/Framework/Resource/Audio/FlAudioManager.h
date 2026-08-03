@@ -3,8 +3,8 @@
 class FlAudioManager : public BaseBasicResourceManager<FMOD::Sound>
 {
 public:
-	FlAudioManager()  = default;
-	~FlAudioManager() = default;
+	FlAudioManager() noexcept;
+	~FlAudioManager() override;
 
 	const bool Load(const std::string& path) override;
 private:

@@ -1,11 +1,15 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <fstream>
+#include <cstdint>
 #include <filesystem>
-#include <unordered_map>
+#include <fstream>
+#include <iomanip>
+#include <memory>
 #include <random>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace FlAssetProtector
 {
@@ -49,11 +53,22 @@ namespace FlAssetProtector
 		{
 			std::string result;
 			if (encryptedName.size() % 2 != 0) return "";
+			result.reserve(encryptedName.size() / 2);
+
+			const auto hexValue = [](const char ch) noexcept
+				{
+					if (ch >= '0' && ch <= '9') return ch - '0';
+					if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+					if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+					return -1;
+				};
 
 			for (size_t i = 0; i < encryptedName.size(); i += 2)
 			{
-				std::string hexByte = encryptedName.substr(i, 2);
-				uint8_t val = static_cast<uint8_t>(std::stoi(hexByte, nullptr, 16));
+				const int high = hexValue(encryptedName[i]);
+				const int low = hexValue(encryptedName[i + 1]);
+				if (high < 0 || low < 0) return "";
+				const auto val = static_cast<uint8_t>((high << 4) | low);
 				result.push_back(static_cast<char>(val ^ XOR_KEY));
 			}
 			return result;

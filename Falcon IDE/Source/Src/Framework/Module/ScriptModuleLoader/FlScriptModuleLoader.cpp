@@ -3,10 +3,33 @@
 
 #include "../../Application/Application.h"
 
+namespace
+{
+    thread_local HMODULE g_registrationOwner{};
+
+    void RemoveShadowFiles(const std::filesystem::path& dllPath) noexcept
+    {
+        if (dllPath.empty()) return;
+
+        std::error_code ec;
+        std::filesystem::remove(dllPath, ec);
+
+        auto pdbPath = dllPath;
+        pdbPath.replace_extension(".pdb");
+        ec.clear();
+        std::filesystem::remove(pdbPath, ec);
+    }
+}
+
 FlScriptModuleLoader::FlScriptModuleLoader(const std::string& root)
     : m_rootDir{ root }
     , m_upWatcher{ std::make_unique<FlFileWatcher>() }
 {
+    std::error_code ec;
+    std::filesystem::create_directories(m_rootDir, ec);
+    if (ec)
+        return;
+
     // 初回スキャン ＆ ロード
     ScanModules();
     LoadAll();
@@ -25,15 +48,19 @@ FlScriptModuleLoader::FlScriptModuleLoader(const std::string& root)
             if (path.extension() != ".dll")
                 return;
 
+            auto key = path.string();
+            std::lock_guard<std::mutex> lock(m_pendingMutex);
+
             if (status == FlFileWatcher::FileStatus::Created || status == FlFileWatcher::FileStatus::Modified)
             {
-                auto key = path.string();
+                m_pendingDeletes.erase(key);
                 m_pendingReloads[key] = { path, std::chrono::steady_clock::now() };
             }
 
             else if (status == FlFileWatcher::FileStatus::Erased)
             {
-                DeleteModule(path);
+                m_pendingReloads.erase(key);
+                m_pendingDeletes[key] = path;
             }
         }
     );
@@ -46,7 +73,8 @@ static FlRuntimeAPI* CreateRuntimeAPI() noexcept // Wrap
     api.RegisterModule = [](const char* name, void* ref)
         {
             auto reflection{ static_cast<ComponentReflection*>(ref) };
-            FlEntityComponentSystemKernel::Instance().RegisterModule(name, *reflection);
+            FlEntityComponentSystemKernel::Instance().RegisterModule(
+                name, *reflection, Def::BitMaskPos4, g_registrationOwner);
         };
     api.AddComponent = [](const char* name, uint32_t e)
         {
@@ -100,23 +128,45 @@ static FlRuntimeAPI* CreateRuntimeAPI() noexcept // Wrap
     return &api;
 }
 
+static FlResult CallSetAPI(HMODULE owner, SetRuntimeAPIFn set) noexcept
+{
+    const auto previousOwner = g_registrationOwner;
+    g_registrationOwner = owner;
+    const auto result = set(CreateRuntimeAPI(), FlEditorAdministrator::Instance().GetContext());
+    g_registrationOwner = previousOwner;
+    return result;
+}
+
 void FlScriptModuleLoader::Update() noexcept
 {
     const auto now = std::chrono::steady_clock::now();
+    std::vector<std::filesystem::path> reloads;
+    std::vector<std::filesystem::path> deletes;
 
-    for (auto it = m_pendingReloads.begin(); it != m_pendingReloads.end(); )
     {
-        auto& pending = it->second;
+        std::lock_guard<std::mutex> lock(m_pendingMutex);
 
-        if (now - pending.lastModified > FlChronus::sec(Def::UIntOne))
+        deletes.reserve(m_pendingDeletes.size());
+        for (auto& [_, path] : m_pendingDeletes)
+            deletes.push_back(std::move(path));
+        m_pendingDeletes.clear();
+
+        for (auto it = m_pendingReloads.begin(); it != m_pendingReloads.end(); )
         {
-            ScanModule(pending.dllPath);  // ←ここで初めてホットリロード
-            it = m_pendingReloads.erase(it);
-        }
-        else {
-            ++it;
+            if (now - it->second.lastModified > FlChronus::sec(Def::UIntOne))
+            {
+                reloads.push_back(std::move(it->second.dllPath));
+                it = m_pendingReloads.erase(it);
+            }
+            else ++it;
         }
     }
+
+    for (const auto& path : deletes)
+        DeleteModule(path);
+
+    for (const auto& path : reloads)
+        ScanModule(path);
 }
 
 void FlScriptModuleLoader::ScanModule(const std::filesystem::path& dllPath) noexcept
@@ -141,9 +191,8 @@ void FlScriptModuleLoader::ScanModule(const std::filesystem::path& dllPath) noex
     m.originalDllPath = dllPath; // originalDllPath に保存
 
     GetLastWriteTime(m.originalDllPath, m.lastWriteTime);
-    m_modules.push_back(m);
-
-    Load(m);
+    m_modules.push_back(std::move(m));
+    Load(m_modules.back());
 }
 
 void FlScriptModuleLoader::DeleteModule(const std::filesystem::path& dllPath) noexcept
@@ -230,27 +279,40 @@ void FlScriptModuleLoader::Load(ScriptModule& m) noexcept
     m.loadedDllPath = shadowPath; // コピー先のパスを記憶
     m.dll = LoadLibraryA(m.loadedDllPath.string().c_str());
 
-    if (!m.dll) return;
+    if (!m.dll)
+    {
+        FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to load DLL: %s", m.loadedDllPath.string().c_str());
+        Unload(m);
+        return;
+    }
 
     auto set{ reinterpret_cast<SetRuntimeAPIFn>(GetProcAddress(m.dll, "SetAPI")) };
-    if (set)
+    if (!set)
     {
-        auto r{ set(CreateRuntimeAPI(), FlEditorAdministrator::Instance().GetContext()) };
-        
-        switch (r.code)
-        {
-        case FlResult::Fl_OK:
-            FlEditorAdministrator::Instance().GetLogger()->AddSuccessLog("Success Loaded %s", m.originalDllPath.filename().string().c_str());
-            break;
-        case FlResult::Fl_FAIL:
-            FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Failed Loaded %s  Line %d", m.originalDllPath.filename().string().c_str(), r.line);
-            break;
-        case FlResult::Fl_THROW:
-            FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Throw Loaded %s  Line %d", m.originalDllPath.filename().string().c_str(), r.line);
-            break;
-        default: break;
-        }
+        FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("SetAPI not found in %s", m.loadedDllPath.string().c_str());
+        Unload(m);
+        return;
     }
+
+    auto r{ CallSetAPI(m.dll, set) };
+
+    switch (r.code)
+    {
+    case FlResult::Fl_OK:
+        FlEditorAdministrator::Instance().GetLogger()->AddSuccessLog("Success Loaded %s", m.originalDllPath.filename().string().c_str());
+        break;
+    case FlResult::Fl_FAIL:
+        FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Failed Loaded %s  Line %d", m.originalDllPath.filename().string().c_str(), r.line);
+        break;
+    case FlResult::Fl_THROW:
+        FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Throw Loaded %s  Line %d", m.originalDllPath.filename().string().c_str(), r.line);
+        break;
+    default:
+        break;
+    }
+
+    if (r.code != FlResult::Fl_OK)
+        Unload(m);
 }
 
 // ---------------------------------------------------------
@@ -260,23 +322,15 @@ void FlScriptModuleLoader::Unload(ScriptModule& m) noexcept
 {
     if (m.dll)
     {
+        FlEntityComponentSystemKernel::Instance().RemoveAllComponentsByModule(m.dll);
         FreeLibrary(m.dll);
         m.dll = nullptr;
     }
 
     // ロックが外れたので一時ファイルを削除する
-    if (!m.loadedDllPath.empty() && std::filesystem::exists(m.loadedDllPath))
+    if (!m.loadedDllPath.empty())
     {
-        std::error_code ec;
-        std::filesystem::remove(m.loadedDllPath, ec);
-
-        // PDBも削除
-        auto pdbPath = m.loadedDllPath;
-        pdbPath.replace_extension(".pdb");
-        if (std::filesystem::exists(pdbPath)) {
-            std::filesystem::remove(pdbPath, ec);
-        }
-
+        RemoveShadowFiles(m.loadedDllPath);
         m.loadedDllPath.clear();
     }
 }
@@ -333,8 +387,7 @@ void FlScriptModuleLoader::HotReload(ScriptModule& m) noexcept
     if (!newDll)
     {
         FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("HotReload: LoadLibrary failed for %s", newShadowPath.string().c_str());
-        std::error_code ec;
-        std::filesystem::remove(newShadowPath, ec);
+        RemoveShadowFiles(newShadowPath);
         return;
     }
 
@@ -343,52 +396,40 @@ void FlScriptModuleLoader::HotReload(ScriptModule& m) noexcept
     {
         FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("HotReload: SetAPI not found in %s", newShadowPath.string().c_str());
         FreeLibrary(newDll);
-        std::error_code ec;
-        std::filesystem::remove(newShadowPath, ec);
+        RemoveShadowFiles(newShadowPath);
         return;
     }
 
-    auto r = setNew(CreateRuntimeAPI(), FlEditorAdministrator::Instance().GetContext());
+    HMODULE oldDll = m.dll;
+    auto oldLoadedPath = m.loadedDllPath;
+
+    auto r = CallSetAPI(newDll, setNew);
     if (r.code != FlResult::Fl_OK)
     {
-        // 登録に失敗したら新しい DLL をアンロードして終了
         if (r.code == FlResult::Fl_FAIL)
             FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("HotReload: Failed Loaded %s  Line %d", newShadowPath.filename().string().c_str(), r.line);
         else if (r.code == FlResult::Fl_THROW)
             FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("HotReload: Throw Loaded %s  Line %d", newShadowPath.filename().string().c_str(), r.line);
 
+        FlEntityComponentSystemKernel::Instance().RemoveAllComponentsByModule(newDll);
+
         FreeLibrary(newDll);
-        std::error_code ec;
-        std::filesystem::remove(newShadowPath, ec);
+        RemoveShadowFiles(newShadowPath);
 
         return;
     }
 
-    // ここで古い DLL をアンロードして、ScriptModule 情報を新しいものに差し替える。
-    HMODULE oldDll = m.dll;
-    auto oldLoadedPath = m.loadedDllPath;
+    FlEntityComponentSystemKernel::Instance().RemoveAllComponentsByModule(oldDll);
 
     // 更新：ScriptModule のハンドルとパスを切り替え
     m.dll = newDll;
     m.loadedDllPath = newShadowPath;
 
-    // 古い DLL をアンロード（既に newDll により登録が新しい関数へ切り替わっているはず）
     if (oldDll)
-    {
         FreeLibrary(oldDll);
-    }
 
     // 古いシャドウファイルと PDB を削除
-    if (!oldLoadedPath.empty() && std::filesystem::exists(oldLoadedPath))
-    {
-        std::error_code ec;
-        std::filesystem::remove(oldLoadedPath, ec);
-        auto pdbPath = oldLoadedPath;
-        pdbPath.replace_extension(".pdb");
-        if (std::filesystem::exists(pdbPath)) {
-            std::filesystem::remove(pdbPath, ec);
-        }
-    }
+    RemoveShadowFiles(oldLoadedPath);
 
     FlEntityComponentSystemKernel::Instance().DeserializeScene(temp);
 }

@@ -20,19 +20,16 @@ bool FlEditorAdministrator::Initialize(const HWND hwnd, const int32_t windowW, c
 
 	ImGui_ImplWin32_Init(hwnd);
 
-	auto device{ static_cast<ID3D12Device*>(nullptr) };
-
 	const auto& Graphics{ GraphicsDevice::Instance() };
-
-	auto hr{ Graphics.GetDevice()->QueryInterface(IID_PPV_ARGS(&device)) };
-	if (FAILED(hr)) return false;
+	auto* device = Graphics.GetDevice();
+	if (!device) return false;
 
 	auto desc{ D3D12_DESCRIPTOR_HEAP_DESC {} };
 	desc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	desc.NumDescriptors = 2;
 	desc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-	hr = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_pImGuiSrvHeap));
+	auto hr = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_pImGuiSrvHeap));
 	if (FAILED(hr)) return false;
 
 	const auto handleIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -75,10 +72,6 @@ bool FlEditorAdministrator::Initialize(const HWND hwnd, const int32_t windowW, c
 
 	m_wpFrameRateController = wpFrame;
 
-	m_sceneTex = std::make_unique<Texture>();
-
-	m_sceneTex->Create(&GraphicsDevice::Instance(), m_windowW, m_windowH, DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
-
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -86,7 +79,7 @@ bool FlEditorAdministrator::Initialize(const HWND hwnd, const int32_t windowW, c
 	srvDesc.Texture2D.MipLevels = 1;
 
 	// ImGuiのヒープ上の、ゲームビュー用に確保した場所にSRVを作成
-	device->CreateShaderResourceView(m_sceneTex->GetResource(), &srvDesc, m_gameViewCPUHandle);
+	device->CreateShaderResourceView(Graphics.GetOffsetScreen().Get(), &srvDesc, m_gameViewCPUHandle);
 
 	m_upLogEditor->AddLog(Math::Color{ Def::FloatOne, Def::FloatOne,Def::Half,Def::FloatOne },
 		"Execution Application");
@@ -100,40 +93,36 @@ void FlEditorAdministrator::Begin() noexcept
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	auto cmdList = GraphicsDevice::Instance().GetCmdList();
-	auto backBuffer = GraphicsDevice::Instance().GetBackBuffer().Get();
-	auto sceneTexture = m_sceneTex->GetResource();
-	auto preCopyBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-		backBuffer,
+	auto& graphics = GraphicsDevice::Instance();
+	auto* cmdList = graphics.GetCmdList();
+	const auto& offscreen = graphics.GetOffsetScreen();
+	graphics.TransitionResource(
+		offscreen.Get(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_COPY_SOURCE);
-	cmdList->ResourceBarrier(1, &preCopyBarrier);
-	cmdList->CopyResource(sceneTexture, backBuffer);
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-	D3D12_RESOURCE_BARRIER postCopyBarriers[] = {
-		// バックバッファは、この後のImGuiの描画処理のために、再びレンダーターゲット状態に戻す。
-		CD3DX12_RESOURCE_BARRIER::Transition(
-			backBuffer,
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_RENDER_TARGET),
-			// シーンテクスチャは、ImGui::Imageで表示するために、ピクセルシェーダーリソース状態へ遷移させる。
-			CD3DX12_RESOURCE_BARRIER::Transition(
-				sceneTexture,
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-	};
-	cmdList->ResourceBarrier(_countof(postCopyBarriers), postCopyBarriers);
+	auto* backBuffer = graphics.GetBackBuffer().Get();
+	graphics.TransitionResource(
+		backBuffer,
+		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_RENDER_TARGET);
 
+	auto backBufferRTV = graphics.GetRTVHandle(graphics.GetCurrentBackBufferIndex());
+	cmdList->OMSetRenderTargets(1, &backBufferRTV, FALSE, nullptr);
+	const float editorClearColor[]{ 0.05f, 0.05f, 0.05f, 1.0f };
+	cmdList->ClearRenderTargetView(backBufferRTV, editorClearColor, Def::UIntZero, nullptr);
 
-	// --- ここからImGuiのUI構築準備 ---
-	m_dockspaceID = ImGui::GetID("MainDockspace");
-	if (m_firstRun && !ImGui::DockBuilderGetNode(m_dockspaceID))
+	const auto* viewport = ImGui::GetMainViewport();
+	m_dockspaceID = ImGui::GetID("FalconEditorDockspaceV2");
+	if (m_firstRun)
 	{
-		SetupDockLayout();
+		if (!ImGui::DockBuilderGetNode(m_dockspaceID))
+		{
+			SetupDockLayout();
+		}
 		m_firstRun = false;
 	}
-	auto dockspaceId{ ImGui::GetID("MainDockspace") };
-	ImGui::DockSpace(dockspaceId, ImVec2(Def::FloatZero, Def::FloatZero), ImGuiDockNodeFlags_PassthruCentralNode);
+	ImGui::DockSpaceOverViewport(m_dockspaceID, viewport);
 }
 
 void FlEditorAdministrator::Update() noexcept
@@ -251,31 +240,29 @@ void FlEditorAdministrator::EditorCameraUpdate() noexcept
 void FlEditorAdministrator::End() noexcept
 {
 	auto cmdList = GraphicsDevice::Instance().GetCmdList();
-	auto sceneTexture = m_sceneTex->GetResource();
-	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-		sceneTexture,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		D3D12_RESOURCE_STATE_COPY_DEST);
-	cmdList->ResourceBarrier(1, &barrier);
-
 	ImGui::Render();
-	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), GraphicsDevice::Instance().GetCmdList());
+
+	ID3D12DescriptorHeap* heaps[]{ m_pImGuiSrvHeap.Get() };
+	cmdList->SetDescriptorHeaps(_countof(heaps), heaps);
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
 }
 
 void FlEditorAdministrator::SetupDockLayout() const noexcept
 {
 	ImGui::DockBuilderRemoveNode(m_dockspaceID);
 	ImGui::DockBuilderAddNode(m_dockspaceID, ImGuiDockNodeFlags_DockSpace);
+	ImGui::DockBuilderSetNodeSize(m_dockspaceID, ImGui::GetMainViewport()->WorkSize);
 
-	auto main{ ImGuiID{} }, right{ ImGuiID{} }, bottom{ ImGuiID{} }, top{ ImGuiID{} };
+	auto center{ ImGuiID{} }, right{ ImGuiID{} }, bottom{ ImGuiID{} }, top{ ImGuiID{} };
+	auto centerTop{ ImGuiID{} }, rightBottom{ ImGuiID{} };
 
-	ImGui::DockBuilderSplitNode(m_dockspaceID, ImGuiDir_Left, 0.7f, &main, &right);
-	ImGui::DockBuilderSplitNode(main, ImGuiDir_Down, 0.3f, &bottom, nullptr);
-	ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.3f, &top, nullptr);
+	ImGui::DockBuilderSplitNode(m_dockspaceID, ImGuiDir_Right, 0.3f, &right, &center);
+	ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.3f, &bottom, &centerTop);
+	ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.3f, &top, &rightBottom);
 
 	ImGui::DockBuilderDockWindow("FramesPerSecond", top);
-	ImGui::DockBuilderDockWindow("Game Viewport", main);
-	ImGui::DockBuilderDockWindow("Log Editor", right);
+	ImGui::DockBuilderDockWindow("Game Viewport", centerTop);
+	ImGui::DockBuilderDockWindow("Log Editor", rightBottom);
 	ImGui::DockBuilderDockWindow("Asset Browser", bottom);
 	ImGui::DockBuilderDockWindow("Terminal", bottom);
 

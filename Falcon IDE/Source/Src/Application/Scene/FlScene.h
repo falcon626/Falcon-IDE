@@ -21,7 +21,12 @@ public:
 private:
 
     FlScene() {
-        m_upLoader = std::make_unique<FlScriptModuleLoader>("Src/Framework/Module/ScriptDLLs/");
+#ifdef _DEBUG
+        constexpr auto moduleRoot = "Src/Framework/Module/ScriptDLLs/Debug/";
+#else
+        constexpr auto moduleRoot = "Src/Framework/Module/ScriptDLLs/Release/";
+#endif
+        m_upLoader = std::make_unique<FlScriptModuleLoader>(moduleRoot);
     }
     std::unique_ptr<FlScriptModuleLoader> m_upLoader;
 };

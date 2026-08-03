@@ -70,16 +70,16 @@
     </ImportGroup>
     <PropertyGroup Label="UserMacros"/>
     <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|Win32&apos;">
-        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\#ProjectName#\</OutDir>
+        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\$(Configuration)\#ProjectName#\</OutDir>
     </PropertyGroup>
     <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|Win32&apos;">
-        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\#ProjectName#\</OutDir>
+        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\$(Configuration)\#ProjectName#\</OutDir>
     </PropertyGroup>
     <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|x64&apos;">
-        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\#ProjectName#\</OutDir>
+        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\$(Configuration)\#ProjectName#\</OutDir>
     </PropertyGroup>
     <PropertyGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Release|x64&apos;">
-        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\#ProjectName#\</OutDir>
+        <OutDir>$(SolutionDir)Src\Framework\Module\ScriptDLLs\$(Configuration)\#ProjectName#\</OutDir>
     </PropertyGroup>
     <ItemDefinitionGroup Condition="&apos;$(Configuration)|$(Platform)&apos;==&apos;Debug|Win32&apos;">
         <ClCompile>

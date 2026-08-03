@@ -14,17 +14,17 @@ public:
 	bool Init(HWND hWnd, int w, int h);
 
 	// <Pre:描画事前準備処理>
-	void PreDraw();
+	bool PreDraw();
 	void PreDraw(ComPtr<ID3D12GraphicsCommandList6>& cmdList) const;
 
 	// <Transition:Viewの切り替え>
 	void TransitionResource(ID3D12Resource* pResource, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
 
 	// <Swap:切り替え>
-	void ScreenFlip();
+	bool ScreenFlip();
 
 	// <Synchronization:コマンドライン同期>
-	void WaitForCommandQueue();
+	bool WaitForCommandQueue();
 
 	// <Getter:デバイス>
 	ID3D12Device8* GetDevice()const { return m_pDevice.Get(); }
@@ -69,7 +69,7 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle(UINT index) const;
 
 	// <Getter:オフスクリーンバッファ>
-	const auto GetOffsetScreen() const noexcept { return m_pOffscreenBuffer; }
+	const auto& GetOffsetScreen() const noexcept { return m_pOffscreenBuffer; }
 
 	// <Getter:オフセットスクリーンヒープインデックス>
 	const auto GetOffsetScreenIndex() const noexcept { return m_offscreenSRVIndexInGameHeap; }
@@ -93,6 +93,9 @@ private:
 
 	// <Create:スワップチェイン作成>　<Arg:ウィンドウハンドル、幅、高>
 	bool CreateSwapchain(HWND hWnd, int width, int height);
+
+	// Keep the swapchain buffers aligned with the current client area.
+	bool ResizeSwapchainToClient();
 
 	// <Create:スワップチェインRTV作成>
 	bool CreateSwapchainRTV();
@@ -134,6 +137,10 @@ private:
 	ComPtr<ID3D12CommandQueue>				m_pCmdQueue;
 
 	ComPtr<IDXGISwapChain4>						 m_pSwapChain;
+	HWND										 m_hWnd{};
+	UINT										 m_swapchainWidth{};
+	UINT										 m_swapchainHeight{};
+	UINT										 m_swapchainFlags{ DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH };
 	std::array<ComPtr<ID3D12Resource>, 
 		static_cast<size_t>(SwapBafferNum::Max)> m_pSwapchainBuffers;
 

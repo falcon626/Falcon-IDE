@@ -2,6 +2,8 @@
 
 bool GraphicsDevice::Init(HWND hWnd, int w, int h)
 {
+	m_hWnd = hWnd;
+
 	if (!CreateFactory())
 	{
 		assert(NULL && "ファクトリー作成失敗");
@@ -82,8 +84,14 @@ bool GraphicsDevice::Init(HWND hWnd, int w, int h)
 	return true;
 }
 
-void GraphicsDevice::PreDraw()
+bool GraphicsDevice::PreDraw()
 {
+	if (!ResizeSwapchainToClient())
+	{
+		assert(NULL && "Failed to resize swapchain");
+		return false;
+	}
+
 	GetCBVSRVUAVHeap()->SetHeap();
 
 	GetCBufferAllocater()->ResetCurrentUseNumber();
@@ -91,6 +99,7 @@ void GraphicsDevice::PreDraw()
 	Prepare();
 
 	GetCBufferAllocater()->Begin();
+	return true;
 }
 
 void GraphicsDevice::PreDraw(ComPtr<ID3D12GraphicsCommandList6>& cmdList) const
@@ -144,72 +153,109 @@ D3D12_CPU_DESCRIPTOR_HANDLE GraphicsDevice::GetRTVHandle(UINT index) const
 
 void GraphicsDevice::Prepare()
 {
-	auto bbIdx{ m_pSwapChain->GetCurrentBackBufferIndex() };
-	SetResourceBarrier(m_pSwapchainBuffers[bbIdx].Get(),
-		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-
-	auto rtvH{ m_upRTVHeap->GetCPUHandle(bbIdx) };
 	auto dsvH{ m_upDSVHeap->GetCPUHandle(m_upDepthStencil->GetDSVNumber()) };
-	m_pCmdList->OMSetRenderTargets(1, &rtvH, false, &dsvH);
 
 	// オフスクリーンバッファをRTV状態へ
-	//TransitionResource(m_pOffscreenBuffer.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	TransitionResource(m_pOffscreenBuffer.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 	// レンダーターゲットをオフスクリーンバッファに設定
-	//m_pCmdList->OMSetRenderTargets(1, &m_offsceenRTVHandle, false, &dsvH);
+	m_pCmdList->OMSetRenderTargets(1, &m_offsceenRTVHandle, false, &dsvH);
 	// クリア
-	float clearColor[]{ Def::FloatZero,Def::FloatOne,Def::FloatOne,Def::FloatOne };
+	const float clearColor[]{ 0.5f, 0.8f, 1.0f, 1.0f };
 
-	//m_pCmdList->ClearRenderTargetView(m_offsceenRTVHandle, clearColor, Def::UIntZero, nullptr);
-	m_pCmdList->ClearRenderTargetView(rtvH, clearColor, Def::UIntZero, nullptr);
+	m_pCmdList->ClearRenderTargetView(m_offsceenRTVHandle, clearColor, Def::UIntZero, nullptr);
 
 	// デプスバッファのクリア
 	m_upDepthStencil->ClearBuffer();
-
-	//auto* offscreenResource = GetOffsetScreen().Get();
-	//auto offscreenRTVHandle = m_offsceenRTVHandle; // Getter経由で取得
-
-	//TransitionResource(offscreenResource, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	//m_pCmdList->OMSetRenderTargets(1, &offscreenRTVHandle, FALSE, nullptr);
-	//const float gameClearColor[] = { 0.5f, 0.8f, 1.0f, 1.0f };
-	//m_pCmdList->ClearRenderTargetView(offscreenRTVHandle, gameClearColor, 0, nullptr);
 }
 
-void GraphicsDevice::ScreenFlip()
+bool GraphicsDevice::ScreenFlip()
 {
 	auto bbIdx{ m_pSwapChain->GetCurrentBackBufferIndex() };
 	SetResourceBarrier(m_pSwapchainBuffers[bbIdx].Get(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 
-	m_pCmdList->Close();
+	if (FAILED(m_pCmdList->Close()))
+	{
+		assert(false && "Failed to close command list");
+		return false;
+	}
 
 	ID3D12CommandList* cmdlists[] = { m_pCmdList.Get() };
 	m_pCmdQueue->ExecuteCommandLists(Def::UIntOne, cmdlists);
 
-	WaitForCommandQueue();
+	if (!WaitForCommandQueue())
+	{
+		return false;
+	}
 
-	m_pCmdAllocator->Reset();								// コマンドアロケーターの初期化
-	m_pCmdList->Reset(m_pCmdAllocator.Get(), nullptr);		// コマンドリストの初期化
+	if (FAILED(m_pCmdAllocator->Reset()))
+	{
+		assert(false && "Failed to reset command allocator");
+		return false;
+	}
+	if (FAILED(m_pCmdList->Reset(m_pCmdAllocator.Get(), nullptr)))
+	{
+		assert(false && "Failed to reset command list");
+		return false;
+	}
 
-	m_pSwapChain->Present(static_cast<UINT>(m_isVsync), Def::UIntZero);
+	UINT presentFlags{};
+	BOOL isFullscreen{};
+	if (!m_isVsync &&
+		(m_swapchainFlags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) != 0 &&
+		SUCCEEDED(m_pSwapChain->GetFullscreenState(&isFullscreen, nullptr)) &&
+		!isFullscreen)
+	{
+		presentFlags = DXGI_PRESENT_ALLOW_TEARING;
+	}
+
+	if (FAILED(m_pSwapChain->Present(static_cast<UINT>(m_isVsync), presentFlags)))
+	{
+		assert(false && "Failed to present swapchain");
+		return false;
+	}
+
+	return true;
 }
 
-void GraphicsDevice::WaitForCommandQueue()
+bool GraphicsDevice::WaitForCommandQueue()
 {
-	m_pCmdQueue->Signal(m_pFence.Get(), ++m_fenceVal);
-
-	if (m_pFence->GetCompletedValue() != m_fenceVal)
+	const auto fenceValue{ ++m_fenceVal };
+	if (FAILED(m_pCmdQueue->Signal(m_pFence.Get(), fenceValue)))
 	{
-		auto event{ CreateEvent(nullptr, false, false, nullptr) };		// イベントハンドルの取得
-		if (event == nullptr)
+		assert(false && "Failed to signal command queue");
+		return false;
+	}
+
+	if (m_pFence->GetCompletedValue() >= fenceValue)
+	{
+		return true;
+	}
+
+	if (m_fenceEvent == nullptr)
+	{
+		m_fenceEvent = CreateEvent(nullptr, false, false, nullptr);
+		if (m_fenceEvent == nullptr)
 		{
 			assert(false && "Failed to create event for fence completion");
-			return;
+			return false;
 		}
-		m_pFence->SetEventOnCompletion(m_fenceVal, event);
-		WaitForSingleObject(event, INFINITE);		// イベントが発生するまで待ち続ける
-		CloseHandle(event);							// イベントハンドルを閉じる
 	}
+
+	if (FAILED(m_pFence->SetEventOnCompletion(fenceValue, m_fenceEvent)))
+	{
+		assert(false && "Failed to set fence completion event");
+		return false;
+	}
+
+	if (WaitForSingleObject(m_fenceEvent, INFINITE) != WAIT_OBJECT_0)
+	{
+		assert(false && "Failed to wait for fence completion");
+		return false;
+	}
+
+	return true;
 }
 
 bool GraphicsDevice::CreateFactory()
@@ -219,6 +265,15 @@ bool GraphicsDevice::CreateFactory()
 	auto hr{ CreateDXGIFactory2(flagsDXGI, IID_PPV_ARGS(m_pDxgiFactory.GetAddressOf())) };
 
 	if (FAILED(hr)) return false;
+
+	BOOL allowTearing{};
+	if (SUCCEEDED(m_pDxgiFactory->CheckFeatureSupport(
+		DXGI_FEATURE_PRESENT_ALLOW_TEARING,
+		&allowTearing,
+		sizeof(allowTearing))) && allowTearing)
+	{
+		m_swapchainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+	}
 
 	return true;
 }
@@ -294,14 +349,17 @@ bool GraphicsDevice::CreateDevice()
 	};
 
 	// Direct3Dデバイスの初期化
-	D3D_FEATURE_LEVEL featureLevel;
 	for (auto lv : levels)
 	{
 		if (D3D12CreateDevice(pSelectAdapter.Get(), lv, IID_PPV_ARGS(&m_pDevice)) == S_OK)
 		{
-			featureLevel = lv;
 			break;		// 生成可能なバージョンが見つかったらループ打ち切り
 		}
+	}
+
+	if (!m_pDevice)
+	{
+		return false;
 	}
 
 	m_pDevice->SetName(L"DirectX12 Device8");
@@ -354,7 +412,7 @@ bool GraphicsDevice::CreateSwapchain(HWND hWnd, int width, int height)
 	swapchainDesc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
 	swapchainDesc.BufferCount = 2;
 	swapchainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;		// フリップ後は速やかに破棄
-	swapchainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;	// ウィンドウとフルスクリーン切り替え可能
+	swapchainDesc.Flags = m_swapchainFlags;	// ウィンドウとフルスクリーン切り替え可能
 
 	auto hr = m_pDxgiFactory->CreateSwapChainForHwnd(m_pCmdQueue.Get(), hWnd, &swapchainDesc, nullptr, nullptr, (IDXGISwapChain1**)m_pSwapChain.GetAddressOf());
 
@@ -362,6 +420,66 @@ bool GraphicsDevice::CreateSwapchain(HWND hWnd, int width, int height)
 	{
 		return false;
 	}
+
+	m_swapchainWidth = static_cast<UINT>(width);
+	m_swapchainHeight = static_cast<UINT>(height);
+
+	return true;
+}
+
+bool GraphicsDevice::ResizeSwapchainToClient()
+{
+	if (!m_hWnd || !m_pSwapChain)
+	{
+		return false;
+	}
+
+	RECT clientRect{};
+	if (!GetClientRect(m_hWnd, &clientRect))
+	{
+		return false;
+	}
+
+	const auto width = static_cast<UINT>(clientRect.right - clientRect.left);
+	const auto height = static_cast<UINT>(clientRect.bottom - clientRect.top);
+	if (width == 0 || height == 0 ||
+		(width == m_swapchainWidth && height == m_swapchainHeight))
+	{
+		return true;
+	}
+
+	if (!WaitForCommandQueue())
+	{
+		return false;
+	}
+	for (auto& buffer : m_pSwapchainBuffers)
+	{
+		buffer.Reset();
+	}
+
+	auto hr = m_pSwapChain->ResizeBuffers(
+		0, width, height, DXGI_FORMAT_UNKNOWN, m_swapchainFlags);
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	for (UINT i = 0; i < static_cast<UINT>(m_pSwapchainBuffers.size()); ++i)
+	{
+		hr = m_pSwapChain->GetBuffer(i, IID_PPV_ARGS(&m_pSwapchainBuffers[i]));
+		if (FAILED(hr))
+		{
+			return false;
+		}
+
+		auto name{ L"SwapchainBuffer" + std::to_wstring(i) };
+		m_pSwapchainBuffers[i]->SetName(name.c_str());
+		m_pDevice->CreateRenderTargetView(
+			m_pSwapchainBuffers[i].Get(), nullptr, m_upRTVHeap->GetCPUHandle(i));
+	}
+
+	m_swapchainWidth = width;
+	m_swapchainHeight = height;
 
 	return true;
 }
@@ -429,6 +547,10 @@ bool GraphicsDevice::CreateOffsetScreen(const int w, const int h)
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, // 初期状態はSRVとして使えるようにしておく
 		&clearValue,
 		IID_PPV_ARGS(&m_pOffscreenBuffer));
+	if (FAILED(hr))
+	{
+		return false;
+	}
 
 	// オフスクリーン用のRTVを作成 (RTV用ヒープのどこかに)
 	m_upRTVHeap->CreateRTV(m_pOffscreenBuffer.Get(), m_offsceenRTVHandle);
@@ -455,15 +577,20 @@ void GraphicsDevice::EnableDebugLayer()
 {
 	auto pDebugLayer{ static_cast<ID3D12Debug*>(nullptr) };
 
-	D3D12GetDebugInterface(IID_PPV_ARGS(&pDebugLayer));
+	if (FAILED(D3D12GetDebugInterface(IID_PPV_ARGS(&pDebugLayer))))
+	{
+		return;
+	}
 	pDebugLayer->EnableDebugLayer(); // デバッグレイヤーを有効にする
 
 	auto pDebugLayer1{ static_cast<ID3D12Debug1*>(nullptr) };
-	D3D12GetDebugInterface(IID_PPV_ARGS(&pDebugLayer1));
-	pDebugLayer1->SetEnableGPUBasedValidation(true);
+	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&pDebugLayer1))))
+	{
+		pDebugLayer1->SetEnableGPUBasedValidation(true);
+		pDebugLayer1->Release();
+	}
 
 	pDebugLayer->Release();
-	pDebugLayer1->Release();
 }
 
 void GraphicsDevice::WaitForGPU()

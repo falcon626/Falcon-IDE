@@ -8,6 +8,7 @@ public:
     struct ComponentStorage {
         std::unordered_map<uint32_t, void*> components;
         ComponentReflection reflection;
+        HMODULE owner{};
     };
 
     void initialize();
@@ -49,7 +50,11 @@ public:
 
     void AllDestroyEntities();
 
-    void RegisterModule(const std::string& typeName, ComponentReflection refl, const priority prio = Def::BitMaskPos4);
+    void RegisterModule(
+        const std::string& typeName,
+        ComponentReflection refl,
+        const priority prio = Def::BitMaskPos4,
+        HMODULE owner = nullptr);
 
     // コンポーネント追加
     void* AddComponent(const std::string& name, entityId entity);

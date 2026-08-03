@@ -7,21 +7,6 @@
 
 #include "../../Framework/Module/RuntimeModule/Transform.h"
 
-template<typename FnType>
-static HMODULE GetModuleFromStdFunction(const std::function<FnType>& f)
-{
-    if (!f) return nullptr;
-    // std::function 内部が関数ポインタ（非キャプチャ）なら target で取り出せる
-    auto fp{ f.template target<typename std::add_pointer<FnType>::type>() };
-    if (!fp) return nullptr;
-    auto addr{ reinterpret_cast<void*>(*fp) };
-    if (!addr) return nullptr;
-
-    MEMORY_BASIC_INFORMATION mbi{};
-    if (VirtualQuery(addr, &mbi, sizeof(mbi)) == 0) return nullptr;
-    return static_cast<HMODULE>(mbi.AllocationBase);
-}
-
 void FlEntityComponentSystemKernel::initialize()
 {
     ResistCamera ca;
@@ -102,26 +87,36 @@ void FlEntityComponentSystemKernel::DestroyEntity(entityId id)
 
 void FlEntityComponentSystemKernel::AllDestroyEntities()
 {
-    for (auto& id : m_activeIds)
-        DestroyEntity(id);
+    while (!m_activeIds.empty())
+        DestroyEntity(*m_activeIds.begin());
 }
 
-void FlEntityComponentSystemKernel::RegisterModule(const std::string& typeName, ComponentReflection refl, const priority prio)
+void FlEntityComponentSystemKernel::RegisterModule(
+    const std::string& typeName,
+    ComponentReflection refl,
+    const priority prio,
+    HMODULE owner)
 {
     std::lock_guard<std::mutex> lk(m_mu);
-    auto it = FindStorageIterator(typeName);
+    auto it = std::find_if(m_storages.begin(), m_storages.end(),
+        [&](const auto& storage) {
+            return std::get<std::string>(storage) == typeName
+                && std::get<ComponentStorage>(storage).owner == owner;
+        });
 
     if (it != m_storages.end())
     {
         // 既存の場合は更新
         std::get<priority>(*it) = prio;           // Priority更新
         std::get<ComponentStorage>(*it).reflection = refl; // Reflection更新
+        std::get<ComponentStorage>(*it).owner = owner;
     }
     else
     {
         // 新規追加
         ComponentStorage newStorage{};
         newStorage.reflection = refl;
+        newStorage.owner = owner;
         m_storages.emplace_back(prio, typeName, std::move(newStorage));
     }
 
@@ -142,6 +137,10 @@ void* FlEntityComponentSystemKernel::AddComponent(const std::string& name, entit
     auto& storage = std::get<ComponentStorage>(*it);
     if (!storage.reflection.Create)
         return nullptr;
+
+    auto existing = storage.components.find(entity);
+    if (existing != storage.components.end())
+        return existing->second;
 
     void* comp = storage.reflection.Create();
     storage.components[entity] = comp;
@@ -189,10 +188,9 @@ bool FlEntityComponentSystemKernel::HasComponent(const std::string& name, entity
 void FlEntityComponentSystemKernel::UpdateAll(float dt)
 {
     struct Snap {
-        std::string name{};
         entityId id{};
         void* comp{};
-        std::function<void(void*, entityId, float)> updateFn{}; // コピーして保持
+        UpdateFn updateFn{};
         HMODULE ownerModule{};
     };
 
@@ -208,30 +206,25 @@ void FlEntityComponentSystemKernel::UpdateAll(float dt)
             for (auto& [id, comp] : storage.components)
             {
                 Snap s;
-                s.name        = name;
                 s.id          = id;
                 s.comp        = comp;
                 s.updateFn    = storage.reflection.Update;
-                s.ownerModule = GetModuleFromStdFunction<void(void*, entityId, float)>(s.updateFn);
+                s.ownerModule = storage.owner;
                 snaps.push_back(std::move(s));
             }
         }
+
+        std::lock_guard<std::mutex> callsLock(m_moduleCallsMu);
+        for (const auto& snap : snaps)
+        {
+            if (snap.ownerModule)
+                m_moduleActiveCalls[snap.ownerModule].fetch_add(1, std::memory_order_acq_rel);
+        }
     } // ロック解除
 
-    // 各呼び出し前に該当モジュールのカウントを増やしてから呼び出し、終わったら減らす
     for (auto& s : snaps)
     {
         HMODULE mod = s.ownerModule;
-        if (mod)
-        {
-            // インクリメント（マップを初期化する可能性があるのでロックして操作）
-            {
-                std::lock_guard<std::mutex> lk(m_moduleCallsMu);
-                auto& atom = m_moduleActiveCalls[mod];
-                // atomic default-construct -> 0
-                atom.fetch_add(1, std::memory_order_acq_rel);
-            }
-        }
 
         // 実行（例外はキャッチしてログに出すのが無難）
         try {
@@ -246,7 +239,6 @@ void FlEntityComponentSystemKernel::UpdateAll(float dt)
 
         if (mod)
         {
-            // デクリメントして notify
             {
                 std::lock_guard<std::mutex> lk(m_moduleCallsMu);
                 auto it = m_moduleActiveCalls.find(mod);
@@ -359,69 +351,25 @@ void FlEntityComponentSystemKernel::RemoveAllComponentsByModule(HMODULE module)
 {
     if (!module) return;
 
-    // (1) ロックして対象の型名を収集して即座に破棄する（コンポーネント実体を Destroy）
+    std::vector<ComponentStorage> removedStorages;
+
+    // 新しい呼び出しを止めてから、進行中の呼び出しが終わるのを待つ
     {
         std::lock_guard<std::mutex> lk(m_mu);
 
         for (auto it = m_storages.begin(); it != m_storages.end(); )
         {
-            auto& typeName = std::get<std::string>(*it);
             auto& storage = std::get<ComponentStorage>(*it);
 
-            bool belongs = false;
-
-            if (storage.reflection.Update) {
-                HMODULE m = GetModuleFromStdFunction<void(void*, entityId, float)>(storage.reflection.Update);
-                if (m == module) belongs = true;
-            }
-            if (!belongs && storage.reflection.RenderEditor) {
-                HMODULE m = GetModuleFromStdFunction<void(void*, entityId)>(storage.reflection.RenderEditor);
-                if (m == module) belongs = true;
-            }
-            if (!belongs && storage.reflection.Create) {
-                HMODULE m = GetModuleFromStdFunction<void* ()>(storage.reflection.Create);
-                if (m == module) belongs = true;
-            }
-            if (!belongs && storage.reflection.Copy) {
-                HMODULE m = GetModuleFromStdFunction<void* (void*)>(storage.reflection.Copy);
-                if (m == module) belongs = true;
-            }
-            if (!belongs && storage.reflection.Destroy) {
-                HMODULE m = GetModuleFromStdFunction<void(void*)>(storage.reflection.Destroy);
-                if (m == module) belongs = true;
-            }
-            if (!belongs && storage.reflection.Serialize)
+            if (storage.owner == module)
             {
-                HMODULE m = GetModuleFromStdFunction<void(void*, nlohmann::json&)>(storage.reflection.Serialize);
-                if (m == module) belongs = true;
-            }
-            if (!belongs && storage.reflection.Deserialize)
-            {
-                HMODULE m = GetModuleFromStdFunction<void(void*, const nlohmann::json&)>(storage.reflection.Deserialize);
-                if (m == module) belongs = true;
-            }
-
-            if (belongs)
-            {
-                // Destroy components
-                for (auto& [id, comp] : storage.components)
-                {
-                    if (storage.reflection.Destroy && comp)
-                    {
-                        try { storage.reflection.Destroy(comp); }
-                        catch (...) {}
-                    }
-                }
-                storage.components.clear();
-                storage.reflection = ComponentReflection{};
-
+                removedStorages.push_back(std::move(storage));
                 it = m_storages.erase(it);
             }
             else ++it;
         }
     }
 
-    // (2) アクティブコールが終わるのを待つ（モジュールごとのカウントが 0 になるまで）
     {
         std::unique_lock<std::mutex> lk(m_moduleCallsMu);
         m_moduleCv.wait(lk, [&]() {
@@ -429,8 +377,19 @@ void FlEntityComponentSystemKernel::RemoveAllComponentsByModule(HMODULE module)
             if (it == m_moduleActiveCalls.end()) return true;
             return it->second.load(std::memory_order_acquire) == 0;
             });
-        // オプション：カウントエントリを消す
         m_moduleActiveCalls.erase(module);
+    }
+
+    for (auto& storage : removedStorages)
+    {
+        for (auto& [_, comp] : storage.components)
+        {
+            if (storage.reflection.Destroy && comp)
+            {
+                try { storage.reflection.Destroy(comp); }
+                catch (...) {}
+            }
+        }
     }
 }
 
