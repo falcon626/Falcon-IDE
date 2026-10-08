@@ -3,6 +3,9 @@
 // <Window:ウィンドウ>
 #include "System/Window/Window.h"
 
+// <Input:フレーム入力>
+#include "System/Input/FlInput.h"
+
 // <Utility:便利機能>
 #include "Utility/Utility.hxx"
 #include "Utility/FlUtilityDefault.hxx"

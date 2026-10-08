@@ -19,7 +19,18 @@ public:
         {
             std::lock_guard<std::mutex> lock(m_queueMutex);
             m_running = false;
+            while (!m_commandQueue.empty())
+            {
+                m_commandQueue.front().completion.set_value(false);
+                m_commandQueue.pop();
+            }
         }
+        {
+            std::lock_guard<std::mutex> lock(m_processMutex);
+            if (m_processJob) CloseHandle(m_processJob);
+            m_processJob = nullptr;
+        }
+        if (m_worker.joinable()) CancelSynchronousIo(m_worker.native_handle());
         m_cv.notify_all();
         if (m_worker.joinable()) m_worker.join();
     }
@@ -33,25 +44,28 @@ private:
 
     std::string m_inputBuf;
     std::vector<std::string> m_log;
-    bool m_scrollToBottom{ false };
+    std::atomic<bool> m_scrollToBottom{ false };
     std::filesystem::path m_currentDir{ std::filesystem::current_path() };
 
     // 非同期処理用
     std::thread m_worker;
     std::atomic<bool> m_running{ false };
-    std::queue<std::string> m_commandQueue;
+    struct CommandJob
+    {
+        std::string command;
+        std::promise<bool> completion;
+    };
+    std::queue<CommandJob> m_commandQueue;
     std::mutex m_queueMutex;
     std::condition_variable m_cv;
     std::atomic<bool> m_isRunningCommand{ false };
 
     std::mutex m_processMutex;
-    PROCESS_INFORMATION m_currentPI{}; // current child process info (zeroed when none)
-    HANDLE m_hChildStdin_Wr = nullptr; // 親が書き込む側（子のstdin）
-    std::atomic<bool> m_hasRunningProcess{ false };
+    HANDLE m_processJob = nullptr; // Owns only processes launched by this terminal.
 
     std::mutex m_logMutex;
 
-    void ExecuteCommand(const char* cmd);
+    std::future<bool> ExecuteCommand(const char* cmd);
     void AddLog(const std::string& log);
     void WorkerThread();
 

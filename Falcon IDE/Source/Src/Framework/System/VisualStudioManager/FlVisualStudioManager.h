@@ -19,6 +19,9 @@ public:
     bool RemoveProjectFromSolution(const std::filesystem::path& projPath) noexcept;
 
     bool FormingModule(const std::filesystem::path& projDir, const std::filesystem::path& codeFile) noexcept;
+    static bool IsValidProjectName(const std::string& name) noexcept;
+    static std::string CreateBuildCommand(const std::filesystem::path& projectPath,
+        const std::string& configuration, const std::string& platform, const std::string& action);
 
 private:
 
@@ -26,7 +29,7 @@ private:
     // 初期コードファイル生成
     // -----------------------------------------------
     bool CreateSourceFiles(const std::filesystem::path& dir,
-        const std::string& name) noexcept;
+        const std::string& name, const std::filesystem::path& scriptDir) noexcept;
 
     // -----------------------------------------------
     // プロジェクトファイル生成（.vcxproj）

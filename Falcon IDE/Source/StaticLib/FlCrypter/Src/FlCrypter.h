@@ -75,6 +75,10 @@ namespace FlAssetProtector
 		}
 	};
 
+	bool ReadFileBinary(const std::filesystem::path& path, std::vector<uint8_t>& out);
+	bool WriteFileBinary(const std::filesystem::path& path, const std::vector<uint8_t>& data);
+	bool RestoreAssetsIfMissing(const std::filesystem::path& encryptedDir, const std::filesystem::path& outputDir);
+
 	bool EncryptAssetFile(const std::filesystem::path& inputPath, const std::filesystem::path& outputDir);
 	bool DecryptAssetFile(const std::filesystem::path& encryptedPath, std::vector<uint8_t>& outData);
 

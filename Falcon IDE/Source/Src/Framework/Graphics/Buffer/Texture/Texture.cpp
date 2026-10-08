@@ -14,14 +14,6 @@ bool Texture::Load(const std::string& filePath)
 
 	const DirectX::Image* pImage{ nullptr };
 
-	auto hr{ DirectX::LoadFromWICFile(wFilePath.c_str(), DirectX::WIC_FLAGS_NONE, &metadata, scratchImage)};
-
-	if (FAILED(hr))
-	{
-		assert("テクスチャの読み込み失敗");
-		return false;
-	}
-
 	bool bLoaded = false;
 
 	// WIC画像読み込み
@@ -79,7 +71,7 @@ bool Texture::Load(const std::string& filePath)
 	resDesc.MipLevels = static_cast<UINT16>(metadata.mipLevels);
 	resDesc.SampleDesc.Count = Def::UIntOne;
 
-	hr = m_pGraphicsDevice->GetDevice()->CreateCommittedResource(&heapprop, D3D12_HEAP_FLAG_NONE, &resDesc,
+	auto hr = m_pGraphicsDevice->GetDevice()->CreateCommittedResource(&heapprop, D3D12_HEAP_FLAG_NONE, &resDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_pBuffer));
 
 	if (FAILED(hr))

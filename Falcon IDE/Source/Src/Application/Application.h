@@ -33,6 +33,8 @@ private:
 	std::shared_ptr<FlFrameRateController> m_spFrameRateController;
 
 	bool m_isEnd{ false };
+	bool m_isReady{ false };
+	bool m_resourcesReady{ false };
 
 	int32_t m_windowW;
 	int32_t m_windowH;

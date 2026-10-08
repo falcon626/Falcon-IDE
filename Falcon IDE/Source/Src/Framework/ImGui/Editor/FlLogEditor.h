@@ -1,5 +1,8 @@
 #pragma once
 
+#include <mutex>
+#include <utility>
+
 class FlLogEditor
 {
 public:
@@ -64,8 +67,11 @@ public:
 	template<class... Args>
 	void AddLog(const Math::Color& color, const std::string& fmt, Args... args)
 	{
-		auto buffer{ FlChronus::now_iso8601() + " | " + Str::FormatString(fmt.c_str(),args...)};
+		auto text = fmt;
+		if constexpr (sizeof...(Args) > 0) text = Str::FormatString(fmt.c_str(), args...);
+		auto buffer{ FlChronus::now_iso8601() + " | " + text };
 
+		std::lock_guard<std::mutex> lock(m_logMutex);
 		m_logEntries.push_back({ buffer, color });
 		m_scrollToBottom = true;
 	}
@@ -109,9 +115,11 @@ public:
 	template<class... Args>
 	void AddLogW(const Math::Color& color, const std::wstring& fmt, Args... args)
 	{
-		auto wbuffer{ Str::FormatStringW(fmt.c_str(), args...) };
+		auto wbuffer = fmt;
+		if constexpr (sizeof...(Args) > 0) wbuffer = Str::FormatStringW(fmt.c_str(), args...);
 		auto buffer{ FlChronus::now_iso8601() + " | " + wide_to_ansi(wbuffer) };
 
+		std::lock_guard<std::mutex> lock(m_logMutex);
 		m_logEntries.push_back({ buffer, color });
 		m_scrollToBottom = true;
 	}
@@ -155,9 +163,11 @@ public:
 	template<class... Args>
 	void AddLogU8(const Math::Color& color, const std::u8string& fmt, Args... args)
 	{
-		auto u8buffer{ Str::FormatStringU8(fmt.c_str(), args...) };
+		auto u8buffer = fmt;
+		if constexpr (sizeof...(Args) > 0) u8buffer = Str::FormatStringU8(fmt.c_str(), args...);
 		auto buffer{ FlChronus::now_iso8601() + " | " + Str::U8StringToStringSafe(u8buffer) };
 
+		std::lock_guard<std::mutex> lock(m_logMutex);
 		m_logEntries.push_back({ buffer, color });
 		m_scrollToBottom = true;
 	}
@@ -177,10 +187,24 @@ private:
 		Math::Color color;
 	};
 
-	void Clear() { m_logEntries.clear(); }
+	void Clear()
+	{
+		std::lock_guard<std::mutex> lock(m_logMutex);
+		m_logEntries.clear();
+		m_scrollToBottom = false;
+	}
+
+	auto TakeSnapshot()
+	{
+		std::lock_guard<std::mutex> lock(m_logMutex);
+		auto snapshot = std::make_pair(m_logEntries, m_scrollToBottom);
+		m_scrollToBottom = false;
+		return snapshot;
+	}
 	void Copy();
 	void ExportLog();
 
+	std::mutex m_logMutex;
 	std::list<LogEntry> m_logEntries;
 	bool                m_scrollToBottom{ false };
 

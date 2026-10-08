@@ -128,6 +128,9 @@
     <Filter Include="Src\Framework\System\Multithread">
       <UniqueIdentifier>{70a977cb-21a2-43bf-9131-17a200273f6b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Framework\System\Input">
+      <UniqueIdentifier>{AD1B6EA0-1E9E-442A-B16B-38EA24E6E518}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Src\Framework\Release\Audio\core">
       <UniqueIdentifier>{d1192b68-5c27-4da1-8432-c716894bdfdc}</UniqueIdentifier>
     </Filter>
@@ -252,6 +255,9 @@
     </ClCompile>
     <ClCompile Include="Src\Framework\System\FrameControl\FlFrameRateController.cpp">
       <Filter>Src\Framework\System\FrameControl</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Framework\System\Input\FlInput.cpp">
+      <Filter>Src\Framework\System\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Framework\System\Watcher\FlFileWatcher.cpp">
       <Filter>Src\Framework\System\Watcher</Filter>
@@ -663,6 +669,9 @@
     <ClInclude Include="Src\Framework\Module\RuntimeModule\Camera.h">
       <Filter>Src\Framework\Module\RuntimeModule</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\Input.h">
+      <Filter>Src\Framework\Module\RuntimeModule</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Framework\Module\RuntimeModule\ResistCamera.h">
       <Filter>Src\Framework\Module\RuntimeModule</Filter>
     </ClInclude>
@@ -676,7 +685,7 @@
       <Filter>Src\Framework\Module\RuntimeModule</Filter>
     </ClInclude>
     <ClInclude Include="Src\Framework\System\Input\FlInput.h">
-      <Filter>Src\Framework\System\Multithread</Filter>
+      <Filter>Src\Framework\System\Input</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

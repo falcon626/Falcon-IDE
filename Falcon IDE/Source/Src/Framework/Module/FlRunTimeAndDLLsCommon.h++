@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <cstddef>
 
+#include "RuntimeModule/Input.h"
+
 /// <summary>
 /// Interface Boundary
 /// </summary>
@@ -61,6 +63,10 @@ extern "C"
         // --- ToLog ログ出力 ---
         void (*ToLogInfo) (const char* fmt, ...);
         void (*ToLogError)(const char* fmt, ...);
+
+        // --- Host-owned frame input service ---
+        // Appended to preserve the offsets of every existing API entry.
+        const FlInputAPI* Input;
     };
 
     // --- DLL がエクスポートする関数 ---

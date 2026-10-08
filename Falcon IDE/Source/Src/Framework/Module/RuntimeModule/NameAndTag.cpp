@@ -84,7 +84,8 @@ ResistNameAndTag::ResistNameAndTag()
                 FlJsonUtility::GetValue(json, "Tag", &c->m_tag);
                 auto s{ std::string{} };
                 FlJsonUtility::GetValue(json, "GUID", &s);
-                c->m_guid.FromString(s);
+                if (!c->m_guid.FromString(s))
+                    FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Invalid or missing entity GUID; generated ID was retained.");
             }
             catch (...) {
                 FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Deserialize: Throw to deserialize logic(%s).", "Name");

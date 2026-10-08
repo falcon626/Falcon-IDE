@@ -2,6 +2,7 @@
 #include "../../Core/FlEntityComponentSystemKernel.h"
 
 #include "../../Application/Application.h"
+#include "../../System/Input/FlInput.h"
 
 namespace
 {
@@ -124,6 +125,7 @@ static FlRuntimeAPI* CreateRuntimeAPI() noexcept // Wrap
 
             FlEntityComponentSystemKernel::Instance().ToLogError(result);
         };
+    api.Input = &FlInput::RuntimeAPI();
 
     return &api;
 }

@@ -30,51 +30,59 @@ void FlTerminalEditor::RenderTerminal(const std::string& title, bool* p_open, Im
     ImGui::End();
 }
 
-void FlTerminalEditor::ExecuteCommand(const char* cmd)
+std::future<bool> FlTerminalEditor::ExecuteCommand(const char* cmd)
 {
-    if (!cmd || cmd[Def::UIntZero] == '\0') return;
+    CommandJob job{ cmd ? cmd : "", {} };
+    auto completion = job.completion.get_future();
+    if (job.command.empty())
+    {
+        job.completion.set_value(false);
+        return completion;
+    }
     {
         std::lock_guard<std::mutex> lock(m_queueMutex);
-        m_commandQueue.push(cmd);
+        if (!m_running)
+        {
+            job.completion.set_value(false);
+            return completion;
+        }
+        m_commandQueue.push(std::move(job));
     }
     m_cv.notify_one();
+    return completion;
 }
 
 void FlTerminalEditor::WorkerThread()
 {
     while (m_running)
     {
-        std::string command;
+        CommandJob job;
         {
             std::unique_lock<std::mutex> lock(m_queueMutex);
             m_cv.wait(lock, [&] { return !m_running || !m_commandQueue.empty(); });
             if (!m_running) break;
-            if (!m_commandQueue.empty()) {
-                command = m_commandQueue.front();
-                m_commandQueue.pop();
-            }
+            job = std::move(m_commandQueue.front());
+            m_commandQueue.pop();
         }
-
-        if (command.empty()) continue;
+        const auto& command = job.command;
         m_isRunningCommand = true;
+        const auto finish = [&](bool success) {
+            m_isRunningCommand = false;
+            job.completion.set_value(success);
+        };
 
-        // --- 内部コマンド処理 ---
-        if (command.rfind("cd ", 0) == 0) 
+        if (command.rfind("cd ", 0) == 0)
         {
-            std::string newDir = command.substr(3);
-            auto newPath = m_currentDir / newDir;
             try {
-                newPath = std::filesystem::canonical(newPath);
-                if (std::filesystem::is_directory(newPath)) 
-                {
-                    m_currentDir = newPath;
-                    AddLog("> Changed Current Directory: " + m_currentDir.string());
-                }
-                else 
-                    AddLog("> Directory does not exist: " + newPath.string());
+                auto newPath = std::filesystem::canonical(m_currentDir / command.substr(3));
+                if (!std::filesystem::is_directory(newPath)) throw std::runtime_error("Not a directory");
+                m_currentDir = newPath;
+                AddLog("> Changed Current Directory: " + m_currentDir.string());
+                finish(true);
             }
             catch (const std::exception& e) {
                 AddLog("> Directory change failed: " + std::string(e.what()));
+                finish(false);
             }
             continue;
         }
@@ -85,106 +93,95 @@ void FlTerminalEditor::WorkerThread()
                 m_log.clear();
             }
             AddLog("> Terminal Current Directory: " + m_currentDir.string());
+            finish(true);
             continue;
         }
 
-        // --- 外部コマンド実行 ---
         SECURITY_ATTRIBUTES sa{ sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE };
         HANDLE hRead = nullptr, hWrite = nullptr;
-        CreatePipe(&hRead, &hWrite, &sa, 0);
-        SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
+        if (!CreatePipe(&hRead, &hWrite, &sa, 0))
+        {
+            AddLog("> Failed to create command output pipe.");
+            finish(false);
+            continue;
+        }
+        if (!SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0))
+        {
+            CloseHandle(hRead);
+            CloseHandle(hWrite);
+            AddLog("> Failed to configure command output pipe.");
+            finish(false);
+            continue;
+        }
 
-        STARTUPINFO si{ sizeof(STARTUPINFO) };
+        STARTUPINFOW si{ sizeof(STARTUPINFOW) };
         PROCESS_INFORMATION pi{};
-        si.dwFlags |= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+        si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
         si.hStdOutput = hWrite;
         si.hStdError = hWrite;
         si.wShowWindow = SW_HIDE;
-
         auto fullCmd = "chcp 65001 > nul && cd /d \"" + m_currentDir.string() + "\" && " + command;
         auto wcmd = L"cmd.exe /c " + ansi_to_wide(fullCmd);
-
-        if (!CreateProcess(nullptr, wcmd.data(), nullptr, nullptr, TRUE,
-            CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
+        bool launched = false;
         {
+            std::lock_guard<std::mutex> lock(m_processMutex);
+            if (m_running && !m_processJob)
+            {
+                m_processJob = CreateJobObjectW(nullptr, nullptr);
+                JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+                limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                if (m_processJob && !SetInformationJobObject(m_processJob,
+                    JobObjectExtendedLimitInformation, &limits, sizeof(limits)))
+                {
+                    CloseHandle(m_processJob);
+                    m_processJob = nullptr;
+                }
+            }
+            if (m_running && m_processJob)
+            {
+                launched = CreateProcessW(nullptr, wcmd.data(), nullptr, nullptr, TRUE,
+                    CREATE_NO_WINDOW | CREATE_SUSPENDED, nullptr, nullptr, &si, &pi) != FALSE;
+                if (launched && (!AssignProcessToJobObject(m_processJob, pi.hProcess) ||
+                    ResumeThread(pi.hThread) == static_cast<DWORD>(-1)))
+                {
+                    TerminateProcess(pi.hProcess, 1);
+                    CloseHandle(pi.hThread);
+                    CloseHandle(pi.hProcess);
+                    launched = false;
+                }
+            }
+        }
+        CloseHandle(hWrite);
+        if (!launched)
+        {
+            CloseHandle(hRead);
             AddLog("> Failed to execute command: " + command);
+            finish(false);
             continue;
         }
 
-        CloseHandle(hWrite);
-
         AddLog("> " + m_currentDir.string() + " " + command);
-
-        auto userCmd{ std::string_view{command} };
-        auto standardCmd{ std::string_view{"cd "} };
-
-        if (userCmd.substr(0, 3) == standardCmd.substr(0, 3))
-        {
-            auto newDir{ std::string{ command.c_str() + 3}};
-            auto newPath{ m_currentDir / newDir };
-
-            try {
-                newPath = std::filesystem::canonical(newPath);
-                if (std::filesystem::is_directory(newPath))
-                {
-                    m_currentDir = newPath;
-                    AddLog("> Changed Current Directory: " + m_currentDir.string());
-                }
-                else AddLog("> Directory Does Not Exist: " + newPath.string());
-            }
-            catch (const std::exception& e) {
-                AddLog("> Directory Move Failed: " + std::string(e.what()));
-            }
-
-            m_scrollToBottom = true;
-            return;
-        }
-
-        // --- リアルタイム読み取り ---
         char buffer[4096];
         DWORD bytesRead = 0;
-
-        while (true) {
-            BOOL success = ReadFile(hRead, buffer, sizeof(buffer) - 1, &bytesRead, nullptr);
-            if (!success || bytesRead == 0) {
-                // 出力が終わったら break
-                if (WaitForSingleObject(pi.hProcess, 50) == WAIT_OBJECT_0)
-                    break;
-                continue;
-            }
-            buffer[bytesRead] = '\0';
+        while (m_running && ReadFile(hRead, buffer, sizeof(buffer), &bytesRead, nullptr) && bytesRead > 0)
             AddLog(std::string(buffer, bytesRead));
-        }
 
-        WaitForSingleObject(pi.hProcess, INFINITE);
-
-        DWORD exitCode{ Def::ULongZero };
-        if (GetExitCodeProcess(pi.hProcess, &exitCode))
-        {
-            if (exitCode == Def::ULongZero)
-            {
-                m_isRunningCommand = false;
-                AddLog("> Process Completed Successfully. (ExitCode=0)");
-            }
-            else
-            {
-                m_isRunningCommand = false;
-                AddLog("> Process Completed with Errors. ExitCode=" + std::to_string(exitCode));
-            }
-        }
-        else
-        {
-            m_isRunningCommand = false;
+        WaitForSingleObject(pi.hProcess, m_running ? INFINITE : 5000);
+        DWORD exitCode{};
+        const auto gotExitCode = GetExitCodeProcess(pi.hProcess, &exitCode);
+        if (!gotExitCode)
             AddLog("> Failed to retrieve process exit code.");
-        }
+        else if (exitCode == 0)
+            AddLog("> Process Completed Successfully. (ExitCode=0)");
+        else
+            AddLog("> Process Completed with Errors. ExitCode=" + std::to_string(exitCode));
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         CloseHandle(hRead);
-
-        m_scrollToBottom = true;
+        finish(m_running && gotExitCode && exitCode == 0);
     }
 }
-
 void FlTerminalEditor::AddLog(const std::string& log)
 {
     auto processedLog{ log };

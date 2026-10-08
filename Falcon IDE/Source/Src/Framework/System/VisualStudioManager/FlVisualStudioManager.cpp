@@ -1,54 +1,135 @@
 #include "FlVisualStudioManager.h"
+#include "FlCrypter/Src/FlCrypter.h"
 import FlProcessCreater;
+static bool WriteProjectTextFile(const std::filesystem::path& path, const std::string& text) noexcept
+{
+    return FlAssetProtector::WriteFileBinary(path, std::vector<uint8_t>(text.begin(), text.end()));
+}
+
+bool FlVisualStudioProjectManager::IsValidProjectName(const std::string& name) noexcept
+{
+	const auto isLetter = [](unsigned char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); };
+	if (name.empty() || !isLetter(name.front()) || name.find("__") != std::string::npos) return false;
+	if (!std::all_of(name.begin(), name.end(), [&](unsigned char c) {
+		return isLetter(c) || (c >= '0' && c <= '9') || c == '_';
+	})) return false;
+
+	auto upper = name;
+	for (auto& c : upper) if (c >= 'a' && c <= 'z') c -= 'a' - 'A';
+	if (upper == "CON" || upper == "PRN" || upper == "AUX" || upper == "NUL") return false;
+	return !(upper.size() == 4 && (upper.starts_with("COM") || upper.starts_with("LPT")) &&
+		upper.back() >= '1' && upper.back() <= '9');
+}
+
+std::string FlVisualStudioProjectManager::CreateBuildCommand(const std::filesystem::path& projectPath,
+	const std::string& configuration, const std::string& platform, const std::string& action)
+{
+	static const std::string vcvarsPath = [] {
+		wchar_t programFiles[MAX_PATH]{};
+		const auto length = GetEnvironmentVariableW(L"ProgramFiles(x86)", programFiles, MAX_PATH);
+		if (!length || length >= MAX_PATH) return std::string{};
+		const auto vswhere = std::filesystem::path(programFiles) / L"Microsoft Visual Studio/Installer/vswhere.exe";
+		std::string output;
+		DWORD exitCode{};
+		if (!::ExecuteCommand(L"\"" + vswhere.wstring() +
+			L"\" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -utf8",
+			output, exitCode) || exitCode != 0) return std::string{};
+		const auto end = output.find_first_of("\r\n");
+		output.resize(end == std::string::npos ? output.size() : end);
+		if (output.empty()) return std::string{};
+		const auto path = std::filesystem::path(utf8_to_wide(output)) / L"VC/Auxiliary/Build/vcvarsall.bat";
+		std::error_code ec;
+		return std::filesystem::is_regular_file(path, ec) && !ec ? wide_to_ansi(path.wstring()) : std::string{};
+	}();
+	if (vcvarsPath.empty()) return {};
+	const auto architecture = platform == "Win32" ? "x86" : "x64";
+	const auto solutionDir = std::filesystem::absolute(std::filesystem::current_path()).string() + "\\\\";
+	return "call \"" + vcvarsPath + "\" " + architecture + " && msbuild \"" +
+		std::filesystem::absolute(projectPath).lexically_normal().string() +
+		"\" /p:Configuration=" + configuration + " /p:Platform=" + platform +
+		" /p:SolutionDir=\"" + solutionDir + "\" /t:" + action;
+}
 
 bool FlVisualStudioProjectManager::CreateNewProject(const std::string& projectName, const std::filesystem::path& targetDir) noexcept
 {
-	auto projDir = targetDir / projectName;
+    if (!IsValidProjectName(projectName))
+    {
+        FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Invalid project name: %s", projectName.c_str());
+        return false;
+    }
+    const auto projDir = targetDir / projectName;
+    const auto scriptDir = std::filesystem::path("ScriptModule") / projectName;
+    std::error_code ec;
+    const auto projectExists = std::filesystem::exists(projDir, ec);
+    if (ec) return false;
+    const auto scriptExists = std::filesystem::exists(scriptDir, ec);
+    if (ec || projectExists || scriptExists)
+    {
+        FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Project or script already exists: %s", projectName.c_str());
+        return false;
+    }
 
-	// ---------------------------------------------------
-	// (1) ディレクトリ作成
-	// ---------------------------------------------------
-	try {
-		std::filesystem::create_directories(projDir);
-	}
-	catch (...) {
-		FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to create directory: %s", projDir.string().c_str());
-		return false;
-	}
+    const auto stageRoot = targetDir / (".FlCreate-" + FlGuid{}.ToString());
+    const auto stageProject = stageRoot / "Project";
+    const auto stageScript = stageRoot / "Script";
+    const auto stageSolution = stageRoot / ("Solution" + m_solutionPath.extension().string());
+    bool projectPublished = false;
+    bool scriptPublished = false;
+    const auto failed = [&] {
+        if (scriptPublished)
+        {
+            std::filesystem::rename(scriptDir, stageScript, ec);
+            if (ec) FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Could not restore script staging; files remain at %s", scriptDir.string().c_str());
+        }
+        if (projectPublished)
+        {
+            std::filesystem::rename(projDir, stageProject, ec);
+            if (ec) FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Could not restore project staging; files remain at %s", projDir.string().c_str());
+        }
+        // ponytail: retain failed staging and any user-added files for inspection; prune when disk usage matters.
+        FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Project creation failed; staged files retained at %s", stageRoot.string().c_str());
+        return false;
+    };
+    try {
+        std::vector<uint8_t> originalSolution;
+        if (!FlAssetProtector::ReadFileBinary(m_solutionPath, originalSolution)) return false;
+        std::filesystem::create_directories(targetDir);
+        if (!std::filesystem::create_directory(stageRoot)) return false;
+        std::filesystem::create_directory(stageProject);
+        if (!CreateSourceFiles(stageProject, projectName, stageScript) ||
+            !CreateVcxproj(stageProject, projectName) || !CreateFilters(stageProject, projectName) ||
+            !FlAssetProtector::WriteFileBinary(stageSolution, originalSolution)) return failed();
 
-	// ---------------------------------------------------
-	// (2) 初期コードファイル生成
-	// ---------------------------------------------------
-	if (!CreateSourceFiles(projDir, projectName)) {
-		return false;
-	}
+        const auto projFile = projDir / (projectName + ".vcxproj");
+        if (m_solutionPath.extension() == ".sln")
+        {
+            if (!AddProjectToSolution(stageSolution, projFile, projectName)) return failed();
+        }
+        else if (m_solutionPath.extension() == ".slnx")
+        {
+            if (!AddProjectToSolutionSlnx(stageSolution, projFile)) return failed();
+        }
+        else return failed();
 
-	// ---------------------------------------------------
-	// (3) .vcxproj と .filters を生成
-	// ---------------------------------------------------
-	if (!CreateVcxproj(projDir, projectName)) return false;
-	if (!CreateFilters(projDir, projectName)) return false;
-
-	// ---------------------------------------------------
-	// (4) .sln に Project を追加
-	// ---------------------------------------------------
-	auto projFile = projDir / (projectName + ".vcxproj");
-	if (m_solutionPath.extension().string() == ".sln")
-	{
-		if (!AddProjectToSolution(m_solutionPath, projFile, projectName))
-			return false;
-	}
-	else if (m_solutionPath.extension().string() == ".slnx")
-	{
-		if (!AddProjectToSolutionSlnx(m_solutionPath, projFile))
-			return false;
-	}
-	else return false;
-
-	FlEditorAdministrator::Instance().GetLogger()->AddLog("Project '%s' created & added to solution.", projectName.c_str());
-	return true;
+        std::vector<uint8_t> generatedSolution, currentSolution;
+        if (!FlAssetProtector::ReadFileBinary(stageSolution, generatedSolution) ||
+            !FlAssetProtector::ReadFileBinary(m_solutionPath, currentSolution) || currentSolution != originalSolution)
+            return failed();
+        std::filesystem::create_directories(scriptDir.parent_path());
+        std::filesystem::rename(stageProject, projDir);
+        projectPublished = true;
+        std::filesystem::rename(stageScript, scriptDir);
+        scriptPublished = true;
+        if (!FlAssetProtector::WriteFileBinary(m_solutionPath, generatedSolution)) return failed();
+        std::filesystem::remove(stageSolution, ec);
+        std::filesystem::remove(stageRoot, ec);
+        FlEditorAdministrator::Instance().GetLogger()->AddLog("Project '%s' created & added to solution.", projectName.c_str());
+        return true;
+    }
+    catch (...) {
+        return failed();
+    }
 }
-
 static const std::string LoadTextFile(const std::filesystem::path& path) noexcept
 {
 	if (!std::filesystem::exists(path)) return "";
@@ -199,78 +280,36 @@ bool FlVisualStudioProjectManager::FormingModule(const std::filesystem::path& pr
 	}
 }
 
-bool FlVisualStudioProjectManager::CreateSourceFiles(const std::filesystem::path& dir, const std::string& name) noexcept
+bool FlVisualStudioProjectManager::CreateSourceFiles(const std::filesystem::path& dir,
+    const std::string& name, const std::filesystem::path& scriptDir) noexcept
 {
-	const std::string srcDir{ "Src" };
-	const std::filesystem::path scriptDir{ "ScriptModule" };
-
-	try {
-		std::filesystem::create_directories(dir / srcDir);
-		std::filesystem::create_directories(scriptDir / name);
-	}
-	catch (...) {
-		FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to create directory: %s", srcDir.c_str());
-		return false;
-	}
-	auto pchPath{ dir / srcDir / ("Pch.cc") };
-	auto cppPath{ scriptDir / name / (name + ".cxx") };
-
-	// --- Pch ---
-	std::ofstream ofsPch(pchPath);
-	if (!ofsPch) return false;
-
-	// Custom Delimiter
-	ofsPch << R"PCH(#include "Pch.h")PCH";
-
-	// --- Source ---
-	{
-		std::ofstream ofs(cppPath);
-		if (!ofs) return false;
-
-		// Custom Delimiter
-		ofs << LoadTextFile("Src/Framework/System/VisualStudioManager/Sample/Template.cxx.flsample");
-	} // ←close
-
-	ReplaceInFile(cppPath, "#ProjectName#", name);
-
-	return true;
+    try {
+        std::filesystem::create_directories(dir / "Src");
+        if (!std::filesystem::create_directory(scriptDir)) return false;
+        const auto sourceTemplate = LoadTextFile("Src/Framework/System/VisualStudioManager/Sample/Template.cxx.flsample");
+        if (sourceTemplate.empty()) return false;
+        const auto source = Str::ReplaceString(sourceTemplate, "#ProjectName#", name);
+        return WriteProjectTextFile(dir / "Src/Pch.cc", "#include \"Pch.h\"") &&
+            WriteProjectTextFile(scriptDir / (name + ".cxx"), source);
+    }
+    catch (...) { return false; }
 }
 
 bool FlVisualStudioProjectManager::CreateVcxproj(const std::filesystem::path& dir, const std::string& name) noexcept
 {
-	auto path = dir / (name + ".vcxproj");
-
-	{
-		std::ofstream ofs(path);
-		if (!ofs) return false;
-
-		ofs << LoadTextFile("Src/Framework/System/VisualStudioManager/Sample/Template.vcxproj.flsample");
-	} // ←close
-
-	ReplaceInFile(path, "#ProjectName#", name);
-	ReplaceInFile(path, "#GUID#");
-
-	return true;
+    const auto source = LoadTextFile("Src/Framework/System/VisualStudioManager/Sample/Template.vcxproj.flsample");
+    if (source.empty()) return false;
+    const auto named = Str::ReplaceString(source, "#ProjectName#", name);
+    return WriteProjectTextFile(dir / (name + ".vcxproj"), Str::ReplaceString(named, "#GUID#", FlGuid{}.ToString()));
 }
 
 bool FlVisualStudioProjectManager::CreateFilters(const std::filesystem::path& dir, const std::string& name) noexcept
 {
-	auto path = dir / (name + ".vcxproj.filters");
-
-	{
-		std::ofstream ofs(path);
-		if (!ofs) return false;
-
-		auto str = LoadTextFile("Src/Framework/System/VisualStudioManager/Sample/Template.vcxproj.filters.flsample");
-		ofs << str;
-	} // ←close
-
-	ReplaceInFile(path, "#ProjectName#", name);
-	ReplaceInFile(path, "#GUID#");
-
-	return true;
+    const auto source = LoadTextFile("Src/Framework/System/VisualStudioManager/Sample/Template.vcxproj.filters.flsample");
+    if (source.empty()) return false;
+    const auto named = Str::ReplaceString(source, "#ProjectName#", name);
+    return WriteProjectTextFile(dir / (name + ".vcxproj.filters"), Str::ReplaceString(named, "#GUID#", FlGuid{}.ToString()));
 }
-
 bool FlVisualStudioProjectManager::AddToSolutionUsingDotNet(const std::filesystem::path& sln, const std::filesystem::path& vcxproj) noexcept
 {
 	std::wstring wcmd {
@@ -324,6 +363,7 @@ bool FlVisualStudioProjectManager::AddProjectToSolution(
 	while (std::getline(ifs, line)) {
 		lines.push_back(line);
 	};
+	ifs.close();
 
 	FlGuid guid{};
 	auto guidStr{ guid.ToString() };
@@ -391,14 +431,9 @@ bool FlVisualStudioProjectManager::AddProjectToSolution(
 	// -----------------------------
 	// 書き戻し
 	// -----------------------------
-	std::ofstream ofs(sln);
-	if (!ofs) return false;
-
-	for (auto& l : lines) {
-		ofs << l << "\n";
-	}
-
-	return true;
+    std::string output;
+    for (const auto& lineText : lines) output += lineText + "\n";
+    return WriteProjectTextFile(sln, output);
 }
 
 
@@ -422,10 +457,9 @@ bool FlVisualStudioProjectManager::AddProjectToSolutionSlnx(const std::filesyste
 	root->InsertEndChild(newProj);
 
 	// 保存
-	if (doc.SaveFile(slnx.string().c_str()) != tinyxml2::XML_SUCCESS)
-		return false;
-
-	return true;
+	tinyxml2::XMLPrinter printer;
+	doc.Print(&printer);
+	return WriteProjectTextFile(slnx, printer.CStr());
 }
 
 bool FlVisualStudioProjectManager::RemoveProjectFromSolutionSlnx(const std::filesystem::path& slnx, const std::filesystem::path& projPath) noexcept
@@ -449,10 +483,9 @@ bool FlVisualStudioProjectManager::RemoveProjectFromSolutionSlnx(const std::file
 	}
 
 	// 保存
-	if (doc.SaveFile(slnx.string().c_str()) != tinyxml2::XML_SUCCESS)
-		return false;
-
-	return true;
+	tinyxml2::XMLPrinter printer;
+	doc.Print(&printer);
+	return WriteProjectTextFile(slnx, printer.CStr());
 }
 
 void FlVisualStudioProjectManager::ReplaceInFile(const std::filesystem::path& path, const std::string& from, const std::string& to) noexcept

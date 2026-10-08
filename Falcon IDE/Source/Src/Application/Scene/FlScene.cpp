@@ -5,19 +5,33 @@
 void FlScene::Initializer()
 {
     FlEntityComponentSystemKernel::Instance().initialize();
-
-    auto j{ nlohmann::json{} };
-    if (FlJsonUtility::Deserialize(j, "Assets/Scene/lastTime.flscene"))
-        FlEntityComponentSystemKernel::Instance().DeserializeScene(j);
-    else
-        FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Failed load scene %s", "Assets/Scene/lastTime.flscene");
-
+    const std::filesystem::path path{ "Assets/Scene/lastTime.flscene" };
+    std::error_code ec;
+    const bool exists = std::filesystem::exists(path, ec);
+    m_canSave = !ec;
+    if (exists && m_canSave)
+    {
+        auto j = nlohmann::json{};
+        m_canSave = FlJsonUtility::Deserialize(j, path);
+        if (m_canSave)
+        {
+            try { FlEntityComponentSystemKernel::Instance().DeserializeScene(j); }
+            catch (...) { m_canSave = false; }
+        }
+    }
+    if (!m_canSave)
+        FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Scene load failed; automatic save is disabled to preserve %s", path.string().c_str());
     FlEditorAdministrator::Instance().RefreshHierarchy();
 }
 
-void FlScene::PostProcess()
+bool FlScene::PostProcess()
 {
-    FlJsonUtility::Serialize(FlEntityComponentSystemKernel::Instance().SerializeScene(), "Assets/Scene/lastTime.flscene");
+    if (!m_canSave) return false;
+    try {
+        std::filesystem::create_directories("Assets/Scene");
+        return FlJsonUtility::Serialize(FlEntityComponentSystemKernel::Instance().SerializeScene(), "Assets/Scene/lastTime.flscene");
+    }
+    catch (...) { return false; }
 }
 
 void FlScene::Update(float deltaTime)

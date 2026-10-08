@@ -25,6 +25,9 @@ void FlScriptModuleEditor::Render(const std::string& title, bool* p_open, ImGuiW
             m_pendingPopup = PopupRequest{ PopupRequest::Type::Create };
         }
 
+        ImGui::SameLine();
+        if (ImGui::Button("Retry Failed Builds")) m_failedBuilds.clear();
+
         const int columns = Def::BitMaskPos3;
         const ImVec2 iconSize(48, 48);
 
@@ -46,7 +49,7 @@ void FlScriptModuleEditor::Render(const std::string& title, bool* p_open, ImGuiW
             // ★ 右クリックメニューの開始
             if (ImGui::BeginPopupContextItem("ProjectContext"))
             {
-                if (ImGui::MenuItem("Delete Project"))
+                if (ImGui::MenuItem("Delete Project", nullptr, false, CanDeleteProject(folder)))
                 {
                     // プロジェクト名（フォルダ名）を保存
                     m_pendingPopup = PopupRequest{ PopupRequest::Type::Delete, folder };
@@ -75,6 +78,8 @@ void FlScriptModuleEditor::Render(const std::string& title, bool* p_open, ImGuiW
                 ImGui::OpenPopup("ProjectContext");
 
             ImGui::TextWrapped("%s", filename.c_str());
+            if (m_pendingBuilds.contains(path)) ImGui::TextUnformatted("Building...");
+            else if (m_failedBuilds.contains(path)) ImGui::TextUnformatted("Build failed (Retry)");
             ImGui::NextColumn();
             ImGui::PopID();
         }
@@ -103,40 +108,74 @@ void FlScriptModuleEditor::Update() noexcept
     if (!m_upTicker->tick()) return;
     ChangedFilesRefresh();
 
-    for (auto& file : m_changerdCodeFiles)
+    for (auto it = m_pendingBuilds.begin(); it != m_pendingBuilds.end(); )
     {
-        auto projName{ std::filesystem::path(file).parent_path().filename() };
-        m_manager->FormingModule(
-            m_targetDir / projName,
-            file);
- 
-        std::string solutionDir = std::filesystem::absolute(std::filesystem::current_path()).string() + "\\\\";
- 
-        auto projPath{ m_targetDir / projName / (projName.string() + ".vcxproj") };
- 
-        // vcvarsall.bat を呼び出してビルド環境を初期化
+        auto& [file, build] = *it;
+        if (build.completion.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+        {
+            ++it;
+            continue;
+        }
+        bool success = false;
+        try { success = build.completion.get(); }
+        catch (const std::future_error&) {}
+        std::error_code ec;
+        const auto currentWriteTime = std::filesystem::last_write_time(file, ec);
+        if (!ec && currentWriteTime == build.sourceWriteTime)
+        {
+            if (success)
+            {
+                if (!m_meta->ResetAssetChangeFlag(file, build.sourceWriteTime))
+                {
+                    m_failedBuilds[file] = build.sourceWriteTime;
+                    FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Built script changed or its change flag could not be saved: %s", file.c_str());
+                }
+            }
+            else m_failedBuilds[file] = build.sourceWriteTime;
+        }
+        it = m_pendingBuilds.erase(it);
+    }
+
+    for (const auto& file : m_changerdCodeFiles)
+    {
+        if (m_pendingBuilds.contains(file) || !m_meta->IsAssetChanged(file)) continue;
+        std::error_code ec;
+        const auto sourceWriteTime = std::filesystem::last_write_time(file, ec);
+        if (ec) continue;
+        if (auto failed = m_failedBuilds.find(file);
+            failed != m_failedBuilds.end() && failed->second == sourceWriteTime) continue;
+        m_failedBuilds.erase(file);
+
+        const auto projName = std::filesystem::path(file).parent_path().filename();
+        if (!m_manager->FormingModule(m_targetDir / projName, file))
+        {
+            m_failedBuilds[file] = sourceWriteTime;
+            continue;
+        }
 #ifdef _DEBUG
         constexpr auto buildConfiguration = "Debug";
 #else
         constexpr auto buildConfiguration = "Release";
 #endif
-        std::string command =
-            "call \"C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x64 && msbuild \"" +
-            std::filesystem::absolute(projPath).lexically_normal().string() +
-            "\" /p:Configuration=" + buildConfiguration +
-            " /p:Platform=x64" +
-            " /p:SolutionDir=\"" + solutionDir + "\"" +
-            " /t:Build";
- 
-        m_isDirty = true;
- 
-        m_terminal.ExecuteCommand(command.c_str());
-        //FlScene::Instance().GetScriptModuleLoader()->ScanModule(std::filesystem::path(file).parent_path().filename());
-        m_meta->ResetAssetChangeFlag(file);
+        const auto projPath = m_targetDir / projName / (projName.string() + ".vcxproj");
+        const auto command = FlVisualStudioProjectManager::CreateBuildCommand(
+            projPath, buildConfiguration, "x64", "Build");
+        if (command.empty())
+        {
+            FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Visual C++ build tools were not found.");
+            m_failedBuilds[file] = sourceWriteTime;
+            continue;
+        }
+        m_pendingBuilds.emplace(file, PendingBuild{ m_terminal.ExecuteCommand(command.c_str()), sourceWriteTime });
     }
- 
 }
 
+bool FlScriptModuleEditor::CanDeleteProject(const std::string& projectName) const noexcept
+{
+    return std::none_of(m_pendingBuilds.begin(), m_pendingBuilds.end(), [&](const auto& build) {
+        return std::filesystem::path(build.first).parent_path().filename().string() == projectName;
+    });
+}
 void FlScriptModuleEditor::RenderPopup()
 {
     if (!m_pendingPopup) return;
@@ -200,6 +239,12 @@ void FlScriptModuleEditor::RenderPopup()
 
         if (ImGui::Button("Delete"))
         {
+            if (!CanDeleteProject(projName))
+            {
+                FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Cannot delete a project while its build is pending.");
+                ImGui::EndPopup();
+                return;
+            }
             FlEntityComponentSystemKernel::Instance().ClearComponent(std::filesystem::path(projName).stem().string());
 
             auto dir{ m_targetDir / projName };

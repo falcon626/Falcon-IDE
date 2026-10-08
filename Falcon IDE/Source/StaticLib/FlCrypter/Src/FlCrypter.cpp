@@ -532,6 +532,15 @@ namespace FlAssetProtector
 	}
 
 
+	bool RestoreAssetsIfMissing(const std::filesystem::path& encryptedDir, const std::filesystem::path& outputDir)
+	{
+		std::error_code ec;
+		const bool exists = std::filesystem::exists(outputDir, ec);
+		if (ec) return false;
+		if (exists) return std::filesystem::is_directory(outputDir, ec) && !ec;
+		return DecryptAllToOriginal(encryptedDir, outputDir);
+	}
+
 	DecryptedInputStream::DecryptedInputStream(const std::filesystem::path& encryptedPath)
 		: std::istream(nullptr)
 	{

@@ -1,116 +1,93 @@
-//#pragma once
-//
-//class FlInputManager
-//{
-//public:
-//    enum class DeviceType { Keyboard, Mouse, Gamepad };
-//
-//    struct ActionKey
-//    {
-//        DeviceType device;
-//        int code;   // キーコード or ボタンコード
-//        int index;  // ゲームパッド番号（Keyboard, Mouseなら0固定）
-//    };
-//
-//    static FlInputManager& Instance()
-//    {
-//        static FlInputManager instance;
-//        return instance;
-//    }
-//
-//    void Update() noexcept;
-//
-//    // ------------------------
-//    // アクション登録
-//    // ------------------------
-//    void BindAction(const std::string& action, DeviceType device, int code, int index = 0);
-//
-//    // アクション判定
-//    bool IsActionDown(const std::string& action) const noexcept;
-//
-//    bool IsActionPressed(const std::string& action) const noexcept;
-//
-//    bool IsActionReleased(const std::string& action) const noexcept;
-//
-//    // ------------------------
-//    // デバイス状態の直接取得（従来機能）
-//    // ------------------------
-//    bool IsKeyDown(DirectX::Keyboard::Keys key) const noexcept
-//    {
-//        return m_keyboardState.IsKeyDown(key);
-//    }
-//
-//    bool IsKeyPressed(DirectX::Keyboard::Keys key) const noexcept
-//    {
-//        return m_keyboardTracker.IsKeyPressed(key);
-//    }
-//
-//    bool IsKeyReleased(DirectX::Keyboard::Keys key) const noexcept
-//    {
-//        return m_keyboardTracker.IsKeyReleased(key);
-//    }
-//
-//    bool IsLeftButtonDown()  const noexcept { return m_mouseState.leftButton; }
-//    bool IsRightButtonDown() const noexcept { return m_mouseState.rightButton; }
-//    int GetMouseX() const noexcept { return m_mouseState.x; }
-//    int GetMouseY() const noexcept { return m_mouseState.y; }
-//
-//private:
-//    FlInputManager()
-//        : m_keyboard{ std::make_unique<DirectX::Keyboard>() }
-//        , m_mouse{ std::make_unique<DirectX::Mouse>() }
-//    {
-//        m_mouse->SetWindow(nullptr);
-//    }
-//
-//    bool CheckDown(const ActionKey& key) const noexcept
-//    {
-//        switch (key.device)
-//        {
-//        case DeviceType::Keyboard: return m_keyboardState.IsKeyDown(static_cast<DirectX::Keyboard::Keys>(key.code));
-//        case DeviceType::Mouse:    return (key.code == 0) ? m_mouseState.leftButton : false; 
-//        //case DeviceType::Gamepad:  return m_gamepadConnected[key.index] && (m_gamepadStates[key.index].wButtons & key.code);
-//        }
-//        return false;
-//    }
-//
-//    bool CheckPressed(const ActionKey& key) const noexcept
-//    {
-//        switch (key.device)
-//        {
-//        case DeviceType::Keyboard: return m_keyboardTracker.IsKeyPressed(static_cast<DirectX::Keyboard::Keys>(key.code));
-//        case DeviceType::Mouse:    return (key.code == 0) ? (m_mouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED) : false;
-//        //case DeviceType::Gamepad:  return m_gamepadConnected[key.index] && (m_gamepadStates[key.index].wButtons & key.code); 
-//        }
-//        return false;
-//    }
-//
-//    bool CheckReleased(const ActionKey& key) const noexcept
-//    {
-//        switch (key.device)
-//        {
-//        case DeviceType::Keyboard: return m_keyboardTracker.IsKeyReleased(static_cast<DirectX::Keyboard::Keys>(key.code));
-//        case DeviceType::Mouse:    return (key.code == 0) ? (m_mouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::RELEASED) : false;
-//        case DeviceType::Gamepad:  return false;
-//        }
-//        return false;
-//    }
-//
-//private:
-//    // キーボード
-//    std::unique_ptr<DirectX::Keyboard> m_keyboard;
-//    DirectX::Keyboard::State m_keyboardState{};
-//    DirectX::Keyboard::KeyboardStateTracker m_keyboardTracker{};
-//
-//    // マウス
-//    std::unique_ptr<DirectX::Mouse> m_mouse;
-//    DirectX::Mouse::State m_mouseState{};
-//    DirectX::Mouse::ButtonStateTracker m_mouseTracker{};
-//
-//    // ゲームパッド
-//    //std::array<XINPUT_GAMEPAD, 4> m_gamepadStates{};
-//    std::array<bool, 4> m_gamepadConnected{};
-//
-//    // アクションマッピング
-//    std::unordered_map<std::string, std::vector<ActionKey>> m_actionMap;
-//};
+#pragma once
+
+#include "../../Module/RuntimeModule/Input.h"
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+
+#include <Keyboard.h>
+#include <Mouse.h>
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+
+// Host-side input service. ProcessMessage and BeginFrame must run on the window thread.
+class FlInput final
+{
+public:
+    static FlInput& Instance() noexcept;
+
+    [[nodiscard]] bool Initialize(void* windowHandle) noexcept;
+    void Shutdown() noexcept;
+    void Reset() noexcept;
+
+    void ProcessMessage(std::uint32_t message, std::uintptr_t wParam, std::intptr_t lParam) noexcept;
+    [[nodiscard]] bool BeginFrame() noexcept;
+    void EndFrame() noexcept;
+
+    [[nodiscard]] bool IsInitialized() const noexcept { return m_isInitialized; }
+
+    [[nodiscard]] bool IsKeyDown(FlKey key) const noexcept;
+    [[nodiscard]] bool IsKeyPressed(FlKey key) const noexcept;
+    [[nodiscard]] bool IsKeyReleased(FlKey key) const noexcept;
+
+    [[nodiscard]] bool IsMouseButtonDown(FlMouseButton button) const noexcept;
+    [[nodiscard]] bool IsMouseButtonPressed(FlMouseButton button) const noexcept;
+    [[nodiscard]] bool IsMouseButtonReleased(FlMouseButton button) const noexcept;
+
+    [[nodiscard]] FlInputVector2 GetMousePosition() const noexcept;
+    [[nodiscard]] FlInputVector2 GetMouseDelta() const noexcept;
+    [[nodiscard]] std::int32_t GetMouseWheelDelta() const noexcept;
+
+    [[nodiscard]] static const FlInputAPI& RuntimeAPI() noexcept;
+
+private:
+    static constexpr std::size_t KeyCount = 256;
+    static constexpr std::size_t MouseButtonCount = 5;
+
+    using KeyFlags = std::array<std::uint8_t, KeyCount>;
+    using MouseButtonFlags = std::array<std::uint8_t, MouseButtonCount>;
+
+    FlInput() = default;
+    ~FlInput() = default;
+    FlInput(const FlInput&) = delete;
+    FlInput& operator=(const FlInput&) = delete;
+
+    void CaptureKeyboardTransitions();
+    void CaptureMouseTransitions();
+
+    std::unique_ptr<DirectX::Keyboard> m_keyboard;
+    std::unique_ptr<DirectX::Mouse> m_mouse;
+
+    DirectX::Keyboard::State m_keyboardState{};
+    DirectX::Keyboard::State m_messageKeyboardState{};
+    DirectX::Keyboard::KeyboardStateTracker m_keyboardTracker{};
+
+    DirectX::Mouse::State m_mouseState{};
+    DirectX::Mouse::State m_messageMouseState{};
+    DirectX::Mouse::ButtonStateTracker m_mouseTracker{};
+
+    KeyFlags m_pendingKeyPressed{};
+    KeyFlags m_pendingKeyReleased{};
+    KeyFlags m_keyPressed{};
+    KeyFlags m_keyReleased{};
+
+    MouseButtonFlags m_pendingMousePressed{};
+    MouseButtonFlags m_pendingMouseReleased{};
+    MouseButtonFlags m_mousePressed{};
+    MouseButtonFlags m_mouseReleased{};
+
+    FlInputVector2 m_mousePosition{};
+    FlInputVector2 m_mouseDelta{};
+    std::int32_t m_mouseWheelDelta{};
+
+    bool m_hasMessageKeyboardState{};
+    bool m_hasMouseState{};
+    bool m_hasMessageMouseState{};
+    bool m_waitingForAbsolutePosition{};
+    bool m_isInitialized{};
+};

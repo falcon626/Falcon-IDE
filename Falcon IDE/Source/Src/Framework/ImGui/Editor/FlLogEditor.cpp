@@ -38,7 +38,8 @@ void FlLogEditor::RenderLog(const std::string& title, bool* p_opened, ImGuiWindo
 
     ImGui::BeginChild("LogScroll", ImVec2(Def::Vec2.x, Def::Vec2.y), false, ImGuiWindowFlags_HorizontalScrollbar);
 
-    for (const auto& entry : m_logEntries)
+    const auto [entries, scrollToBottom] = TakeSnapshot();
+    for (const auto& entry : entries)
     {
         const auto imCol{ ImVec4{entry.color.R(), entry.color.G(), entry.color.B(), entry.color.A()} };
 
@@ -47,8 +48,7 @@ void FlLogEditor::RenderLog(const std::string& title, bool* p_opened, ImGuiWindo
         ImGui::PopStyleColor();
     }
 
-    if (m_scrollToBottom) ImGui::SetScrollHereY(Def::FloatOne);
-    m_scrollToBottom   = false;
+    if (scrollToBottom) ImGui::SetScrollHereY(Def::FloatOne);
 
     ImGui::EndChild();
 
@@ -67,7 +67,8 @@ void FlLogEditor::Copy()
 
 void FlLogEditor::ExportLog()
 {
-	if (m_logEntries.empty()) 
+	const auto entries = TakeSnapshot().first;
+	if (entries.empty())
 	{
 		AddWarningLog("Warning: Log is empty: Nothing to export");
 		return;
@@ -82,7 +83,7 @@ void FlLogEditor::ExportLog()
 
 	auto upDebLogger{ std::make_unique<DebugLogger>(path) };
 
-	for (const auto& logText : m_logEntries) {
+	for (const auto& logText : entries) {
 		DEBUG_LOG(upDebLogger, logText.text.c_str());
 	}
 

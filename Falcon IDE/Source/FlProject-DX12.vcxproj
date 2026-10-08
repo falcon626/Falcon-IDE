@@ -230,6 +230,7 @@ xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(
     <ClCompile Include="Src\Framework\System\CppParser\FlCppParser.cpp" />
     <ClCompile Include="Src\Framework\System\FrameControl\FlFrameRateController.cpp" />
     <ClCompile Include="Src\Framework\System\GUID\FlGUID.cpp" />
+    <ClCompile Include="Src\Framework\System\Input\FlInput.cpp" />
     <ClCompile Include="Src\Framework\System\Multithread\FlMultithreadController.cpp" />
     <ClCompile Include="Src\Framework\System\SolutionParser\FlSolutionParser.cpp" />
     <ClCompile Include="Src\Framework\System\VisualStudioManager\FlVisualStudioManager.cpp" />
@@ -299,6 +300,7 @@ xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(
     <ClInclude Include="Src\Framework\Module\FlRuntimeModuleGroup.hpp" />
     <ClInclude Include="Src\Framework\Module\RuntimeModule\Camera.h" />
     <ClInclude Include="Src\Framework\Module\RuntimeModule\Collision.h" />
+    <ClInclude Include="Src\Framework\Module\RuntimeModule\Input.h" />
     <ClInclude Include="Src\Framework\Module\RuntimeModule\ModelRender.h" />
     <ClInclude Include="Src\Framework\Module\RuntimeModule\NameAndTag.h" />
     <ClInclude Include="Src\Framework\Module\RuntimeModule\ResistCamera.h" />
@@ -365,8 +367,6 @@ xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(
     <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
     <Import Project="packages\directxtk12_desktop_2019.2025.10.28.1\build\native\directxtk12_desktop_2019.targets" Condition="Exists('packages\directxtk12_desktop_2019.2025.10.28.1\build\native\directxtk12_desktop_2019.targets')" />
     <Import Project="packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets" Condition="Exists('packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets')" />
-    <Import Project="packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets" Condition="Exists('packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets')" />
-    <Import Project="packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets" Condition="Exists('packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets')" />
     <Import Project="packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.targets" Condition="Exists('packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
@@ -377,8 +377,6 @@ xcopy /y /d "$(ProjectDir)Src\Framework\Resource\Audio\studio\lib\x64\*.dll" "$(
     <Error Condition="!Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets'))" />
     <Error Condition="!Exists('packages\directxtk12_desktop_2019.2025.10.28.1\build\native\directxtk12_desktop_2019.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk12_desktop_2019.2025.10.28.1\build\native\directxtk12_desktop_2019.targets'))" />
     <Error Condition="!Exists('packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtex_uwp.2025.10.28.1\build\native\directxtex_uwp.targets'))" />
-    <Error Condition="!Exists('packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk12_uwp.2025.10.28.1\build\native\directxtk12_uwp.targets'))" />
-    <Error Condition="!Exists('packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk_uwp.2025.10.28.2\build\native\directxtk_uwp.targets'))" />
     <Error Condition="!Exists('packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.props'))" />
     <Error Condition="!Exists('packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Direct3D.D3D12.1.618.5\build\native\Microsoft.Direct3D.D3D12.targets'))" />
   </Target>

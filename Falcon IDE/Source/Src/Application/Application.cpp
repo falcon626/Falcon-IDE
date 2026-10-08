@@ -5,10 +5,10 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
 {
-	if(FlAssetProtector::DecryptAllToOriginal("CryptedAssets", "Assets"))
+	if (!FlAssetProtector::RestoreAssetsIfMissing("CryptedAssets", "Assets"))
 	{
-		FlFileWatcher fileW;
-		fileW.RemDirectory("CryptedAssets");
+		MessageBoxW(nullptr, L"Unable to restore assets. Existing files have been kept.", L"Falcon IDE", MB_OK | MB_ICONERROR);
+		return EXIT_FAILURE;
 	}
 	// メモリリークを知らせる
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -66,6 +66,12 @@ Application::Application()
 		return;
 	}
 
+	if (!FlInput::Instance().Initialize(m_window.GetWndHandle()))
+	{
+		assert(false && "Input initialization failed.");
+		return;
+	}
+
 	if (!GraphicsDevice::Instance().Init(m_window.GetWndHandle(), m_windowW, m_windowH))
 	{
 		assert(false && "グラフィックスデバイス初期化失敗。");
@@ -80,11 +86,13 @@ Application::Application()
 		assert(false && L"FlEditorAdministratorの初期化失敗");
 		return;
 	}
+
+	m_isReady = true;
 }
 
 Application::~Application()
 {
-	m_window.Release();
+	Release();
 }
 
 void Application::Update()
@@ -112,18 +120,29 @@ void Application::Update()
 
 void Application::Execute()
 {
+	if (!m_isReady)
+	{
+		Release();
+		return;
+	}
+
 	auto& loader{ FlResourceAdministrator::Instance() };
-	Shader::Instance().SetBlobs(
-		*loader.Get<ComPtr<ID3DBlob>>("Shader/StandardShader/StandardShader_VS.hlsl"),
-		nullptr,
-		nullptr,
-		nullptr,
-		*loader.Get<ComPtr<ID3DBlob>>("Shader/StandardShader/StandardShader_PS.hlsl")
-	);
+	m_resourcesReady = true;
+	const auto vertexShader = loader.Get<ComPtr<ID3DBlob>>("Shader/StandardShader/StandardShader_VS.hlsl");
+	const auto pixelShader = loader.Get<ComPtr<ID3DBlob>>("Shader/StandardShader/StandardShader_PS.hlsl");
+	if (!vertexShader || !pixelShader || !vertexShader->Get() || !pixelShader->Get())
+	{
+		MessageBoxW(m_window.GetWndHandle(), L"Required shaders could not be loaded. Assets have been kept.", L"Falcon IDE", MB_OK | MB_ICONERROR);
+		loader.GetMetaFileManager()->StopMonitoring();
+		Release();
+		return;
+	}
+	Shader::Instance().SetBlobs(*vertexShader, nullptr, nullptr, nullptr, *pixelShader);
 
 	if (!Shader::Instance().Initializer(&GraphicsDevice::Instance(), m_windowW, m_windowH))
 	{
 		assert(false && L"Shaderの初期化失敗");
+		Release();
 		return;
 	}
 
@@ -133,10 +152,26 @@ void Application::Execute()
 
 	for ( ; ; )
 	{
-		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
+		if (!m_window.ProcessMessage()) End();
+		if (m_isEnd) break;
+
+		auto& input{ FlInput::Instance() };
+		if (!input.BeginFrame())
+		{
+			assert(false && "Input frame update failed.");
+			End();
+			break;
+		}
+
+		if (input.IsKeyPressed(FlKey::Escape))
 		{
 			if (MessageBoxA(m_window.GetWndHandle(), "本当にゲームを終了しますか？",
 				"終了確認", MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDYES) End();
+		}
+		if (m_isEnd)
+		{
+			input.EndFrame();
+			break;
 		}
 
 		m_spFrameRateController->BeginFrame();
@@ -147,19 +182,22 @@ void Application::Execute()
 		auto titleBar{ std::string{"Falcon IDE <Fps = " + std::to_string(m_spFrameRateController->GetCurrentFPS()) + ">"} };
 		SetWindowTextA(m_window.GetWndHandle(), titleBar.c_str());
 
+		input.EndFrame();
 		m_spFrameRateController->EndFrame();
 
-		if (!m_window.ProcessMessage()) End();
 		if (m_isEnd) break;
 	}
 
-	FlScene::Instance().PostProcess();
-
-	if (FlAssetProtector::EncryptAllInDirectory("Assets", "CryptedAssets"))
+	loader.GetMetaFileManager()->StopMonitoring();
+	bool saved = FlScene::Instance().PostProcess();
+	while (!saved && MessageBoxW(nullptr,
+		L"Scene save failed. Retry to save, or Cancel to exit with the previous files preserved. Unsaved edits will be lost.",
+		L"Falcon IDE", MB_RETRYCANCEL | MB_ICONERROR) == IDRETRY)
 	{
-		FlFileWatcher fileW;
-		fileW.RemDirectory("Assets");
+		saved = FlScene::Instance().PostProcess();
 	}
+	if (saved && !FlAssetProtector::EncryptAllInDirectory("Assets", "CryptedAssets"))
+		MessageBoxW(nullptr, L"Asset archive failed. The working copy has been kept and will be used on the next launch.", L"Falcon IDE", MB_OK | MB_ICONERROR);
 
 	// <Release>
 	Release();	
@@ -168,6 +206,13 @@ void Application::Execute()
 void Application::Release()
 {
 	// <Release>
+	m_isReady = false;
+	if (m_resourcesReady)
+	{
+		FlResourceAdministrator::Instance().GetMetaFileManager()->StopMonitoring();
+		m_resourcesReady = false;
+	}
+	FlInput::Instance().Shutdown();
 	m_window.Release();
 	// </Release>
 }

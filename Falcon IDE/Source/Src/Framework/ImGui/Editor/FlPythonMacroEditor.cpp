@@ -70,23 +70,7 @@ void FlPythonMacroEditor::ExecuteScript(const std::filesystem::path& scriptPath)
         return;
     }
 
-    auto sa = SECURITY_ATTRIBUTES{ sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE };
-    auto hRead = HANDLE{ nullptr }, hWrite = HANDLE{ nullptr };
-    if (!CreatePipe(&hRead, &hWrite, &sa, 0)) {
-        m_terminal.AddLog("> Error: CreatePipe failed.");
-        return;
-    }
-    SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
-
-    auto si = STARTUPINFO{ sizeof(STARTUPINFO) };
-    auto pi = PROCESS_INFORMATION{};
-    si.dwFlags |= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-    si.hStdOutput = hWrite;
-    si.hStdError = hWrite;
-    si.wShowWindow = SW_HIDE;
-
     std::string command = "py.exe \"" + std::filesystem::absolute(scriptPath).string() + "\"";
-    std::wstring wcommand = ansi_to_wide(command);
 
     m_terminal.ExecuteCommand(command.c_str());
 }

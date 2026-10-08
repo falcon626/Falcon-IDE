@@ -5,14 +5,16 @@ void FlResourceAdministrator::Load(const std::initializer_list<std::string>& ass
 	for (auto& assetsPath : assetsPaths)
 	{
 		auto ext{ Str::FileExtensionSearcher(assetsPath) };
-		auto guid{ m_meta->FindGuidByAsset(assetsPath).value() };
+		const auto optGuid = m_meta->FindGuidByAsset(assetsPath);
+		if (!optGuid) continue;
+		const auto& guid = *optGuid;
 
 		if (ext.empty()) continue;
 
 		if (ext == "gltf" || ext == "fbx")
 		{
 			if (!m_model->Get(assetsPath, guid))
-				FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Error: Model load %s", assetsPath);
+				FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Error: Model load %s", assetsPath.c_str());
 		}
 	}
 }

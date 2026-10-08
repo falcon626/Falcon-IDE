@@ -69,7 +69,15 @@ void FlECSInspectorAndHierarchy::RenderHierarchyWindow(const char* title, bool* 
     {
         std::string filepath{ "Assets/Scene/" };
         if (SaveFileDialog(filepath, "Save Scene", "Scene Files (*.flscene)\0*.flscene\0All Files (*.*)\0*.*\0", "flscene"))
-            FlJsonUtility::Serialize(FlEntityComponentSystemKernel::Instance().SerializeScene(), filepath);
+        {
+            try {
+                if (!FlJsonUtility::Serialize(FlEntityComponentSystemKernel::Instance().SerializeScene(), filepath))
+                    FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to save scene: %s", filepath.c_str());
+            }
+            catch (const std::exception& e) {
+                FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to save scene: %s", e.what());
+            }
+        }
     }
     ImGui::SameLine();
     if (ImGui::Button("Load Scene"))
@@ -80,8 +88,14 @@ void FlECSInspectorAndHierarchy::RenderHierarchyWindow(const char* title, bool* 
             auto j{ nlohmann::json{} };
             if (FlJsonUtility::Deserialize(j, filepath))
             {
-                FlEntityComponentSystemKernel::Instance().DeserializeScene(j);
-                RefreshEntityList();
+                try {
+                    FlEntityComponentSystemKernel::Instance().DeserializeScene(j);
+                    m_selectedEntityId = UINT32_MAX;
+                    RefreshEntityList();
+                }
+                catch (const std::exception& e) {
+                    FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to load scene: %s", e.what());
+                }
             }
             else
                 FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Failed load scene %s", filepath.c_str());
@@ -164,7 +178,7 @@ void FlECSInspectorAndHierarchy::RenderInspectorWindow(const char* title, bool* 
 			if (ImGui::Button((std::string("Remove##") + typeName).c_str())) {
 				FlEntityComponentSystemKernel::Instance().RemoveComponent(typeName, id);
 				FlEditorAdministrator::Instance().GetLogger()->AddLog("Removed component %s from %u", typeName.c_str(), id);
-				compTypes = FlEntityComponentSystemKernel::Instance().GetEntityComponentTypes(id);
+				break;
 			}
 		}
 	}
@@ -240,6 +254,7 @@ void FlECSInspectorAndHierarchy::RenderInspectorWindow(const char* title, bool* 
 void FlECSInspectorAndHierarchy::RenderEntityNode(uint32_t id)
 {
     auto& kernel = FlEntityComponentSystemKernel::Instance();
+    if (!kernel.IsActive(id)) return;
 
     // 名前取得
     std::string name = "Entity";
@@ -318,8 +333,12 @@ void FlECSInspectorAndHierarchy::RenderEntityNode(uint32_t id)
     {
         if (tc)
         {
-            for (auto child : tc->m_children)
-                RenderEntityNode(child);
+            const auto children = tc->m_children;
+            for (const auto child : children)
+            {
+                if (kernel.IsActive(child) && kernel.GetComponent("Transform", child))
+                    RenderEntityNode(child);
+            }
         }
         ImGui::TreePop();
     }
@@ -333,7 +352,8 @@ void FlECSInspectorAndHierarchy::DeleteEntityRecursive(uint32_t id)
     if (tc)
     {
         // 子から順番に削除
-        for (uint32_t child : tc->m_children)
+        const auto children = tc->m_children;
+        for (uint32_t child : children)
             DeleteEntityRecursive(child);
 
         // 親から自身を取り除く
@@ -380,6 +400,18 @@ void FlECSInspectorAndHierarchy::SetParent(uint32_t childId, uint32_t newParentI
 
     // 自己親子付けを防止
     if (childId == newParentId) return;
+    std::unordered_set<uint32_t> visited;
+    for (auto ancestor = newParentId; ancestor != UINT32_MAX; )
+    {
+        if (ancestor == childId || !visited.insert(ancestor).second)
+        {
+            FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Cannot create a hierarchy cycle.");
+            return;
+        }
+        auto* ancestorTC = static_cast<TransformComponent*>(kernel.GetComponent("Transform", ancestor));
+        if (!ancestorTC) return;
+        ancestor = ancestorTC->m_parent;
+    }
 
     // --- 現在の親から削除 ---
     if (childTC->m_parent != UINT32_MAX)
@@ -417,39 +449,49 @@ void FlECSInspectorAndHierarchy::CreatePrefab(uint32_t root)
 		"Prefab Files (*.flprefab)\0*.flprefab\0", "flprefab"))
 		return;
 
-	auto& kernel = FlEntityComponentSystemKernel::Instance();
+	try {
+		auto& kernel = FlEntityComponentSystemKernel::Instance();
 
-	std::vector<uint32_t> entities;
-	CollectEntitiesRecursive(kernel, root, entities);
+		std::vector<uint32_t> entities;
+		CollectEntitiesRecursive(kernel, root, entities);
 
-	nlohmann::json prefab;
-	prefab["Root"] = root;
+		nlohmann::json prefab;
+		prefab["Root"] = root;
 
-	for (auto id : entities)
-		prefab["Entities"][std::to_string(id)] = kernel.SerializeEntity(id);
+		for (auto id : entities)
+			prefab["Entities"][std::to_string(id)] = kernel.SerializeEntity(id);
 
-	FlJsonUtility::Serialize(prefab, filepath);
+		if (!FlJsonUtility::Serialize(prefab, filepath))
+			FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to save prefab: %s", filepath.c_str());
+	}
+	catch (const std::exception& e) {
+		FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to save prefab: %s", e.what());
+	}
 }
 
 void FlECSInspectorAndHierarchy::InstantiatePrefab(const std::string& path)
 {
-	nlohmann::json prefab;
-	if (!FlJsonUtility::Deserialize(prefab, path)) return;
-
-	std::unordered_map<uint32_t, uint32_t> remap;
-	FlEntityComponentSystemKernel::Instance()
-		.DeserializeScene(prefab, &remap);
-
-	uint32_t newRoot = remap[prefab["Root"].get<uint32_t>()];
-
-	// ルート化
-	if (auto tc = static_cast<TransformComponent*>(
-		FlEntityComponentSystemKernel::Instance().GetComponent("Transform", newRoot)))
-	{
-		tc->m_parent = UINT32_MAX;
-	}
-
-	RefreshEntityList();
+    try {
+        nlohmann::json prefab;
+        if (!FlJsonUtility::Deserialize(prefab, path))
+        {
+            FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to load prefab: %s", path.c_str());
+            return;
+        }
+        const auto root = prefab.at("Root").get<uint64_t>();
+        if (root >= UINT32_MAX || !prefab.at("Entities").contains(std::to_string(root)))
+            throw std::invalid_argument("Invalid prefab root.");
+        std::unordered_map<uint32_t, uint32_t> remap;
+        FlEntityComponentSystemKernel::Instance().DeserializeScene(prefab, &remap);
+        const auto newRoot = remap.at(static_cast<uint32_t>(root));
+        if (auto tc = static_cast<TransformComponent*>(
+            FlEntityComponentSystemKernel::Instance().GetComponent("Transform", newRoot)))
+            tc->m_parent = UINT32_MAX;
+        RefreshEntityList();
+    }
+    catch (const std::exception& e) {
+        FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to load prefab: %s", e.what());
+    }
 }
 
 bool FlECSInspectorAndHierarchy::OpenFileDialog(std::string& filepath, const std::string& title, const char* filters)

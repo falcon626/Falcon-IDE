@@ -37,6 +37,9 @@ private:
 	const Material ParseMaterial(const aiMaterial* pMaterial, const std::string& dirPath);
 
 	void BuildNodeHierarchy(aiNode* aiNode, ModelData& model, int32_t parentIndex,
-		std::map<std::string, int32_t>& nodeNameToIndex,
-		const aiScene* pScene, const std::string& dirPath) noexcept;
+		std::map<std::string, int32_t>& nodeNameToIndex);
+
+	void BuildNodeMeshes(const aiNode* sourceNode, const aiScene* scene,
+		const std::string& directory, ModelData& model,
+		const std::map<std::string, int32_t>& nodeNameToIndex, int32_t nodeIndex);
 };

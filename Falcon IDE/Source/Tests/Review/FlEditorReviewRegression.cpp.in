@@ -1,0 +1,353 @@
+#define NOMINMAX
+#include <Windows.h>
+#include <algorithm>
+#include <atomic>
+#include <cassert>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <future>
+#include <iostream>
+#include <list>
+#include <memory>
+#include <limits>
+#include <mutex>
+#include <optional>
+#include <queue>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <stdexcept>
+#include "strconv.h"
+#include "FlCrypter/Src/FlCrypter.h"
+@TinyXmlCpp@
+
+namespace FlAssetProtector {
+@ReadFileBinary@
+@WriteFileBinary@
+}
+class FlGuid {
+public:
+    std::string ToString() const { static int serial = 0; return "test-guid-" + std::to_string(++serial); }
+};
+namespace Str {
+    std::string ReplaceString(std::string text, const std::string& from, const std::string& to) {
+        for (size_t pos = 0; (pos = text.find(from, pos)) != std::string::npos; pos += to.size()) text.replace(pos, from.size(), to);
+        return text;
+    }
+}
+@WriteProjectTextFile@
+@LoadTextFile@
+
+struct TestLogger {
+    template<class... T> void AddLog(const char*, T...) {}
+    template<class... T> void AddWarningLog(const char*, T...) {}
+    template<class... T> void AddErrorLog(const char*, T...) {}
+    template<class... T> void AddSuccessLog(const char*, T...) {}
+};
+struct FlEditorAdministrator {
+    static FlEditorAdministrator& Instance() { static FlEditorAdministrator value; return value; }
+    TestLogger* GetLogger() { return &logger; }
+    TestLogger logger;
+};
+namespace Def { constexpr int IntOne = 1; constexpr unsigned int BitMaskPos13 = 8192; }
+@ProcessExecuteCommand@
+
+bool g_forming = true;
+std::string g_buildCommand = "exit /b 0";
+struct FlVisualStudioProjectManager {
+    std::filesystem::path m_solutionPath = "Test.slnx";
+    static bool IsValidProjectName(const std::string&) noexcept;
+    bool CreateNewProject(const std::string&, const std::filesystem::path&) noexcept;
+    bool CreateSourceFiles(const std::filesystem::path&, const std::string&, const std::filesystem::path&) noexcept;
+    bool CreateVcxproj(const std::filesystem::path&, const std::string&) noexcept;
+    bool CreateFilters(const std::filesystem::path&, const std::string&) noexcept;
+    bool AddProjectToSolution(const std::filesystem::path&, const std::filesystem::path&, const std::string&) { return true; }
+    bool AddProjectToSolutionSlnx(const std::filesystem::path&, const std::filesystem::path&) noexcept;
+    bool RemoveProjectFromSolution(const std::filesystem::path&) { return true; }
+    bool FormingModule(const std::filesystem::path&, const std::filesystem::path&) { return g_forming; }
+    static std::string CreateBuildCommand(const std::filesystem::path&, const std::string&, const std::string&, const std::string&) { return g_buildCommand; }
+    static std::string CreateDetectedBuildCommand(const std::filesystem::path&, const std::string&, const std::string&, const std::string&);
+};
+@IsValidProjectName@
+@CreateNewProject@
+@CreateDetectedBuildCommand@
+@CreateSourceFiles@
+@CreateVcxproj@
+@CreateFilters@
+@AddProjectToSolutionSlnx@
+
+uint32_t g_deleteEntity = UINT32_MAX, g_currentEntity = UINT32_MAX;
+bool g_modalDelete = false, g_confirmDelete = false;
+int g_projectDeletes = 0;
+std::vector<uint32_t> g_drawnEntities;
+using ImGuiTreeNodeFlags = int;
+constexpr int ImGuiTreeNodeFlags_OpenOnArrow = 1, ImGuiTreeNodeFlags_OpenOnDoubleClick = 2,
+    ImGuiTreeNodeFlags_Selected = 4, ImGuiTreeNodeFlags_Leaf = 8;
+constexpr int ImGuiMouseButton_Left = 0, ImGuiMouseButton_Right = 1, ImGuiDragDropFlags_SourceAllowNullID = 1;
+struct ImGuiPayload { void* Data = nullptr; };
+namespace ImGui {
+    bool TreeNodeEx(void* id, int, const char*, ...) { g_currentEntity = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(id)); g_drawnEntities.push_back(g_currentEntity); return true; }
+    bool IsItemActive() { return false; }
+    bool IsMouseDragging(int) { return false; }
+    bool IsItemClicked(int) { return false; }
+    bool BeginDragDropSource(int) { return false; }
+    void SetDragDropPayload(const char*, const void*, size_t) {}
+    void EndDragDropSource() {}
+    bool BeginDragDropTarget() { return false; }
+    const ImGuiPayload* AcceptDragDropPayload(const char*) { return nullptr; }
+    void EndDragDropTarget() {}
+    bool BeginPopupContextItem() { return g_currentEntity == g_deleteEntity; }
+    bool MenuItem(const char* name) { return std::string(name) == "Delete Entity"; }
+    void Text(const char*, ...) {}
+    void TreePop() {}
+    void EndPopup() {}
+    void OpenPopup(const char*) {}
+    bool BeginPopup(const char* name) { return g_modalDelete && std::string(name) == "DeleteProjectPopup"; }
+    void InputText(const char*, std::string*) {}
+    bool Button(const char* name) { return g_confirmDelete && std::string(name) == "Delete"; }
+    void CloseCurrentPopup() {}
+    void SameLine() {}
+    void Separator() {}
+}
+struct FlFileWatcher { bool RemDirectory(const std::filesystem::path&) { ++g_projectDeletes; return true; } };
+
+struct TransformComponent { uint32_t m_parent = UINT32_MAX; std::vector<uint32_t> m_children; };
+struct NameComponent { std::string m_name; };
+struct FlEntityComponentSystemKernel {
+    std::unordered_map<uint32_t, TransformComponent> entities;
+    static FlEntityComponentSystemKernel& Instance() { static FlEntityComponentSystemKernel value; return value; }
+    void* GetComponent(const std::string& type, uint32_t id) { auto it = entities.find(id); return type != "Transform" || it == entities.end() ? nullptr : &it->second; }
+    bool IsActive(uint32_t id) { return entities.contains(id); }
+    void DestroyEntity(uint32_t id) { entities.erase(id); }
+    void ClearComponent(const std::string&) { ++g_projectDeletes; }
+};
+struct FlECSInspectorAndHierarchy {
+    uint32_t m_selectedEntityId = UINT32_MAX;
+    void RefreshEntityList() {}
+    void SetParent(uint32_t, uint32_t);
+    void DeleteEntityRecursive(uint32_t);
+    void RenderEntityNode(uint32_t);
+    void CreatePrefab(uint32_t) {}
+    void InstantiatePrefab(const std::string&) {}
+    bool OpenFileDialog(std::string&, const std::string&, const char*) { return false; }
+};
+@SetParent@
+@DeleteEntityRecursive@
+@RenderEntityNode@
+
+using ImGuiWindowFlags = int;
+constexpr int ImGuiWindowFlags_None = 0;
+#define private public
+@TerminalHeader@
+#undef private
+void FlTerminalEditor::AddLog(const std::string& text) { std::lock_guard lock(m_logMutex); m_log.push_back(text); }
+@ExecuteCommand@
+@WorkerThread@
+
+struct TestMeta {
+    std::list<std::string> files;
+    bool changed = true;
+    bool failReset = false;
+    int resets = 0;
+    auto GetAllFilePaths() { return files; }
+    bool IsAssetChanged(const std::filesystem::path&) { return changed; }
+    bool ResetAssetChangeFlag(const std::filesystem::path& path, std::filesystem::file_time_type expected) {
+        if (failReset || std::filesystem::last_write_time(path) != expected) return false;
+        changed = false; ++resets; return true;
+    }
+};
+struct TestTicker { bool tick() { return true; } };
+class FlScriptModuleEditor {
+public:
+    std::unique_ptr<FlVisualStudioProjectManager> m_manager = std::make_unique<FlVisualStudioProjectManager>();
+    std::unique_ptr<TestMeta> m_meta = std::make_unique<TestMeta>();
+    std::unique_ptr<TestTicker> m_upTicker = std::make_unique<TestTicker>();
+    std::filesystem::path m_targetDir = "DynamicLib";
+    FlTerminalEditor& m_terminal;
+    std::list<std::string> m_codeFiles, m_changerdCodeFiles;
+    struct PendingBuild { std::future<bool> completion; std::filesystem::file_time_type sourceWriteTime; };
+    std::unordered_map<std::string, PendingBuild> m_pendingBuilds;
+    std::unordered_map<std::string, std::filesystem::file_time_type> m_failedBuilds;
+    struct PopupRequest { enum class Type { Create, Delete } type; std::string targetProjectName; };
+    std::optional<PopupRequest> m_pendingPopup;
+    std::string m_newProjectName;
+    explicit FlScriptModuleEditor(FlTerminalEditor& terminal) : m_terminal(terminal) {}
+    void ChangedFilesRefresh() noexcept;
+    void Update() noexcept;
+    bool CanDeleteProject(const std::string&) const noexcept;
+    void RenderPopup();
+};
+@ChangedFilesRefresh@
+@Update@
+@CanDeleteProject@
+@RenderPopup@
+
+void FinishBuild(FlScriptModuleEditor& editor) {
+    assert(editor.m_pendingBuilds.size() == 1);
+    assert(editor.m_pendingBuilds.begin()->second.completion.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    editor.Update();
+}
+
+int main(int argc, char** argv) {
+    assert(argc == 2);
+    if (std::string(argv[1]) == "--wait") { Sleep(60000); return 0; }
+    std::filesystem::current_path(argv[1]);
+    FlVisualStudioProjectManager manager;
+    for (const auto* bad : {"", "../Escape", "C:\\Escape", "Two Words", "a&b", "9Test", "CON", "com1", "Lpt9", "_Reserved", "Has__Reserved"})
+        assert(!manager.IsValidProjectName(bad));
+    assert(manager.IsValidProjectName("Safe_Project2"));
+    assert(!manager.CreateNewProject("../Escape", "DynamicLib"));
+    assert(!std::filesystem::exists("DynamicLib"));
+    std::filesystem::create_directories("ScriptModule/Existing");
+    std::ofstream("ScriptModule/Existing/Existing.cxx") << "keep source";
+    assert(!manager.CreateNewProject("Existing", "DynamicLib"));
+    assert(!std::filesystem::exists("DynamicLib/Existing"));
+    std::ifstream source("ScriptModule/Existing/Existing.cxx");
+    std::string text; std::getline(source, text); assert(text == "keep source"); source.close();
+    std::filesystem::create_directories("DynamicLib/Partial");
+    assert(!manager.CreateNewProject("Partial", "DynamicLib"));
+    assert(!std::filesystem::exists("ScriptModule/Partial"));
+    const std::filesystem::path samples = "Src/Framework/System/VisualStudioManager/Sample";
+    std::filesystem::create_directories(samples);
+    std::ofstream(samples / "Template.cxx.flsample") << "struct #ProjectName#Component {};";
+    std::ofstream(samples / "Template.vcxproj.flsample") << "<Project Name=\"#ProjectName#\" Guid=\"#GUID#\"/>";
+    std::ofstream(samples / "Template.vcxproj.filters.flsample") << "<Filter Name=\"#ProjectName#\" Guid=\"#GUID#\"/>";
+    std::ofstream("Test.slnx") << "<Solution/>";
+    assert(manager.CreateNewProject("Fresh", "DynamicLib"));
+    assert(std::filesystem::exists("ScriptModule/Fresh/Fresh.cxx"));
+    std::vector<uint8_t> originalSolution, restoredSolution;
+    assert(FlAssetProtector::ReadFileBinary("Test.slnx", originalSolution));
+    const auto lockedSolution = CreateFileW(L"Test.slnx", GENERIC_READ, FILE_SHARE_READ, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    assert(lockedSolution != INVALID_HANDLE_VALUE);
+    assert(!manager.CreateNewProject("Retry", "DynamicLib"));
+    assert(!std::filesystem::exists("DynamicLib/Retry") && !std::filesystem::exists("ScriptModule/Retry"));
+    std::filesystem::path failedStage;
+    for (const auto& entry : std::filesystem::directory_iterator("DynamicLib"))
+        if (entry.path().filename().string().starts_with(".FlCreate-")) failedStage = entry.path();
+    assert(!failedStage.empty());
+    assert(std::filesystem::exists(failedStage / "Script/Retry.cxx"));
+    std::ofstream(failedStage / "user-added.txt") << "keep user file";
+    CloseHandle(lockedSolution);
+    assert(FlAssetProtector::ReadFileBinary("Test.slnx", restoredSolution) && restoredSolution == originalSolution);
+    assert(manager.CreateNewProject("Retry", "DynamicLib"));
+    assert(std::filesystem::exists("ScriptModule/Retry/Retry.cxx"));
+    assert(std::filesystem::exists(failedStage / "user-added.txt"));
+    const auto buildCommand = manager.CreateDetectedBuildCommand("Space Path/Test.vcxproj", "Debug", "Win32", "Build");
+    assert(!buildCommand.empty());
+    assert(buildCommand.find("vcvarsall.bat\" x86 && msbuild \"") != std::string::npos);
+    assert(buildCommand.find(" /p:Configuration=Debug /p:Platform=Win32") != std::string::npos);
+
+    auto& entities = FlEntityComponentSystemKernel::Instance().entities;
+    entities[1] = {UINT32_MAX, {2}}; entities[2] = {1, {}}; entities[3] = {UINT32_MAX, {}};
+    FlECSInspectorAndHierarchy hierarchy;
+    hierarchy.SetParent(1, 2);
+    assert(entities.at(1).m_parent == UINT32_MAX && entities.at(2).m_parent == 1);
+    hierarchy.SetParent(2, 3);
+    assert(entities.at(2).m_parent == 3 && entities.at(1).m_children.empty());
+    entities.at(2).m_parent = 3; entities.at(3).m_parent = 2;
+    hierarchy.SetParent(1, 2);
+    assert(entities.at(1).m_parent == UINT32_MAX);
+    entities.clear();
+    entities[1] = {UINT32_MAX, {2, 3, 4}};
+    for (uint32_t id : {2u, 3u, 4u}) entities[id] = {1, {}};
+    hierarchy.DeleteEntityRecursive(1);
+    assert(entities.empty());
+    entities[1] = {UINT32_MAX, {2, 3, 4}};
+    for (uint32_t id : {2u, 3u, 4u}) entities[id] = {1, {}};
+    g_deleteEntity = 2;
+    hierarchy.RenderEntityNode(1);
+    assert(!entities.contains(2) && entities.contains(3) && entities.contains(4));
+    assert((g_drawnEntities == std::vector<uint32_t>{1, 2, 3, 4}));
+    g_deleteEntity = UINT32_MAX;
+
+    FlTerminalEditor terminal;
+    auto ok = terminal.ExecuteCommand("exit /b 0"); assert(ok.get());
+    auto fail = terminal.ExecuteCommand("exit /b 7"); assert(!fail.get());
+    auto cls = terminal.ExecuteCommand("cls"); assert(cls.get());
+    auto cd = terminal.ExecuteCommand("cd directory-that-does-not-exist"); assert(!cd.get());
+    assert(!terminal.IsRunning());
+
+    std::filesystem::create_directories("ScriptModule/BuildTest");
+    const std::string file = "ScriptModule/BuildTest/BuildTest.cxx";
+    std::ofstream(file) << "version one";
+    FlScriptModuleEditor editor(terminal);
+    editor.m_meta->files = {file};
+    editor.Update();
+    assert(editor.m_meta->changed && editor.m_meta->resets == 0);
+    FinishBuild(editor);
+    assert(!editor.m_meta->changed && editor.m_meta->resets == 1);
+
+    editor.m_meta->changed = true; g_buildCommand = "exit /b 7";
+    editor.Update(); FinishBuild(editor);
+    assert(editor.m_meta->changed && editor.m_failedBuilds.contains(file));
+    editor.Update(); assert(editor.m_pendingBuilds.empty());
+    editor.m_failedBuilds.clear(); g_buildCommand = "exit /b 0";
+    editor.Update(); FinishBuild(editor); assert(!editor.m_meta->changed);
+
+    editor.m_meta->changed = true; editor.Update();
+    const auto oldTime = std::filesystem::last_write_time(file);
+    std::filesystem::last_write_time(file, oldTime + std::chrono::seconds(1));
+    const auto oldResets = editor.m_meta->resets;
+    FinishBuild(editor);
+    assert(editor.m_meta->changed && editor.m_meta->resets == oldResets);
+    FinishBuild(editor); assert(!editor.m_meta->changed);
+
+    editor.m_meta->changed = true; editor.m_meta->failReset = true;
+    editor.Update(); FinishBuild(editor);
+    assert(editor.m_meta->changed && editor.m_failedBuilds.contains(file));
+    editor.m_failedBuilds.clear(); editor.m_meta->failReset = false; g_forming = false;
+    editor.Update(); assert(editor.m_pendingBuilds.empty() && editor.m_meta->changed);
+    editor.m_pendingPopup = FlScriptModuleEditor::PopupRequest{ FlScriptModuleEditor::PopupRequest::Type::Delete, "BuildTest" };
+    g_forming = true; editor.m_failedBuilds.clear();
+    g_modalDelete = true; g_confirmDelete = true;
+    editor.Update();
+    editor.RenderPopup();
+    assert(g_projectDeletes == 0 && editor.m_pendingPopup.has_value());
+    FinishBuild(editor);
+    editor.RenderPopup();
+    assert(g_projectDeletes > 0 && !editor.m_pendingPopup.has_value());
+    g_modalDelete = false; g_confirmDelete = false;
+
+    STARTUPINFOW independentStartup{ sizeof(STARTUPINFOW) };
+    PROCESS_INFORMATION independent{};
+    std::wstring thisExe(32768, L'\0');
+    thisExe.resize(GetModuleFileNameW(nullptr, thisExe.data(), static_cast<DWORD>(thisExe.size())));
+    std::wstring independentCommand = L"\"" + thisExe + L"\" --wait";
+    assert(CreateProcessW(thisExe.c_str(), independentCommand.data(), nullptr, nullptr, FALSE,
+        CREATE_NO_WINDOW, nullptr, nullptr, &independentStartup, &independent));
+    auto ownedTerminal = std::make_unique<FlTerminalEditor>();
+    const auto ownedCommand = "\"" + wide_to_ansi(thisExe) + "\" --wait";
+    auto longCommand = ownedTerminal->ExecuteCommand(ownedCommand.c_str());
+    auto queuedCommand = ownedTerminal->ExecuteCommand("exit /b 0");
+    bool processTreeStarted = false;
+    for (int attempt = 0; attempt < 200; ++attempt) {
+        {
+            std::lock_guard lock(ownedTerminal->m_processMutex);
+            JOBOBJECT_BASIC_ACCOUNTING_INFORMATION accounting{};
+            if (ownedTerminal->m_processJob && QueryInformationJobObject(ownedTerminal->m_processJob,
+                JobObjectBasicAccountingInformation, &accounting, sizeof(accounting), nullptr))
+                processTreeStarted = accounting.ActiveProcesses >= 2;
+        }
+        if (processTreeStarted) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    assert(processTreeStarted);
+    const auto shutdownStart = std::chrono::steady_clock::now();
+    ownedTerminal.reset();
+    assert(std::chrono::steady_clock::now() - shutdownStart < std::chrono::seconds(3));
+    std::cout << "Owned process tree shutdown: " << std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - shutdownStart).count() << " ms\n";
+    assert(!longCommand.get() && !queuedCommand.get());
+    assert(WaitForSingleObject(independent.hProcess, 0) == WAIT_TIMEOUT);
+    TerminateProcess(independent.hProcess, 1);
+    WaitForSingleObject(independent.hProcess, 3000);
+    CloseHandle(independent.hThread);
+    CloseHandle(independent.hProcess);
+    return 0;
+}

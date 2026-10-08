@@ -2,6 +2,8 @@
 
 void FlFileWatcher::SetPathAndInterval(const std::filesystem::path& pathToWatch, std::chrono::duration<int> interval)
 {
+    Stop();
+    m_paths.clear();
     if (pathToWatch.is_absolute())
         m_pathToWatch = pathToWatch;
     else
@@ -18,6 +20,8 @@ void FlFileWatcher::SetPathAndInterval(const std::filesystem::path& pathToWatch,
 
 void FlFileWatcher::SetPath(const std::filesystem::path& pathToWatch) noexcept
 {
+    Stop();
+    m_paths.clear();
     if (pathToWatch.is_absolute())
         m_pathToWatch = pathToWatch;
     else
@@ -34,47 +38,52 @@ bool FlFileWatcher::Contains(const std::string& key)
     return m_paths.find(key) != m_paths.end();
 }
 
-void FlFileWatcher::Start(Callback callback) 
+void FlFileWatcher::Start(Callback callback)
 {
+    Stop();
     m_running = true;
 
     m_thread = std::thread([this, callback]() {
         while (m_running) {
             std::this_thread::sleep_for(m_interval);
+            if (!m_running) break;
 
             try {
-                for (auto& file : std::filesystem::recursive_directory_iterator(m_pathToWatch)) {
+                for (const auto& file : std::filesystem::recursive_directory_iterator(m_pathToWatch)) {
                     const auto pathStr = file.path().string();
                     const auto lastWriteTime = std::filesystem::last_write_time(file);
+                    const auto found = m_paths.find(pathStr);
 
-                    if (!Contains(pathStr)) 
-                    {
-                        m_paths[pathStr] = lastWriteTime;
+                    if (found == m_paths.end()) {
                         callback(file.path(), FileStatus::Created);
+                        m_paths[pathStr] = lastWriteTime;
                     }
-                    else 
-                    {
-                        if (m_paths[pathStr] != lastWriteTime) 
-                        {
-                            m_paths[pathStr] = lastWriteTime;
-                            callback(file.path(), FileStatus::Modified);
-                        }
+                    else if (found->second != lastWriteTime) {
+                        callback(file.path(), FileStatus::Modified);
+                        found->second = lastWriteTime;
                     }
                 }
-            }
-            catch (const std::filesystem::filesystem_error& e) {
-                FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Filesystem error: %s  Path: %s", e.what(), m_pathToWatch.c_str());
-            }
 
-            // 削除されたファイルの検出
-            auto it{ m_paths.begin() };
-            while (it != m_paths.end()) {
-                if (!std::filesystem::exists(it->first)) 
-                {
-                    callback(it->first, FileStatus::Erased);
-                    it = m_paths.erase(it);
+                for (auto it = m_paths.begin(); it != m_paths.end(); ) {
+                    if (!std::filesystem::exists(it->first)) {
+                        callback(it->first, FileStatus::Erased);
+                        it = m_paths.erase(it);
+                    }
+                    else ++it;
                 }
-                else ++it;
+            }
+            catch (const std::exception& error) {
+                try {
+                    FlEditorAdministrator::Instance().GetLogger()->AddErrorLog(
+                        "File watcher error: %s  Path: %s", error.what(), m_pathToWatch.string().c_str());
+                }
+                catch (...) { }
+            }
+            catch (...) {
+                try {
+                    FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("File watcher callback threw an unknown exception");
+                }
+                catch (...) { }
             }
         }
     });

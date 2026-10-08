@@ -6,7 +6,7 @@ class FlScene
 {
 public:
     void Initializer();
-    void PostProcess();
+    bool PostProcess();
 
     void Update(float deltaTime);
 
@@ -29,4 +29,5 @@ private:
         m_upLoader = std::make_unique<FlScriptModuleLoader>(moduleRoot);
     }
     std::unique_ptr<FlScriptModuleLoader> m_upLoader;
+    bool m_canSave{ true };
 };

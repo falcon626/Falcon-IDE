@@ -12,7 +12,9 @@ bool FlMetaFileManager::IsInsideFlMeta(const std::filesystem::path& path) const
 
 void FlMetaFileManager::StartMonitoring(const std::string& rootPath, int intervalSeconds)
 {
-	m_rootPath = std::filesystem::path(rootPath);
+	StopMonitoring();
+	std::lock_guard lock(m_metaMutex);
+	m_rootPath = std::filesystem::absolute(rootPath);
 	std::filesystem::create_directories(m_rootPath);
 
 	// 初期スキャン: 既存のファイル/ディレクトリにメタファイルを作成または更新
@@ -33,6 +35,7 @@ void FlMetaFileManager::StartMonitoring(const std::string& rootPath, int interva
 
 void FlMetaFileManager::CreateMetaFileIfNotExist(const std::string& assetPath)
 {
+	std::lock_guard lock(m_metaMutex);
 	if (!std::filesystem::exists(assetPath)) return;
 	auto metaPath{ GetMetaFolderPath(assetPath) / (std::filesystem::path(assetPath).filename().string() + m_metaFileExtension) };
 	if (std::filesystem::exists(metaPath)) return;
@@ -41,6 +44,7 @@ void FlMetaFileManager::CreateMetaFileIfNotExist(const std::string& assetPath)
 
 void FlMetaFileManager::OnAssetRenamedOrMoved(const std::filesystem::path& oldPath, const std::filesystem::path& newPath)
 {
+	std::lock_guard lock(m_metaMutex);
 	if (IsInsideFlMeta(oldPath) || IsInsideFlMeta(newPath)) return;
 
 	// 元メタファイルパス
@@ -78,6 +82,7 @@ void FlMetaFileManager::OnAssetRenamedOrMoved(const std::filesystem::path& oldPa
 
 void FlMetaFileManager::IncrementLoadFlag(const std::string& assetPath)
 {
+	std::lock_guard lock(m_metaMutex);
 	if (!std::filesystem::exists(assetPath)) return;
 	auto metaFolder{ GetMetaFolderPath(assetPath) };
 	auto metaFileName{ std::filesystem::path(assetPath).filename().string() + m_metaFileExtension };
@@ -86,10 +91,10 @@ void FlMetaFileManager::IncrementLoadFlag(const std::string& assetPath)
 	if (!std::filesystem::exists(metaPath)) CreateOrUpdateFlMetaFile(assetPath);
 	// メタファイルを読み込み
 	auto metaJson{ nlohmann::json{} };
-	if (!FlJsonUtility::Deserialize(metaJson, metaPath)) return;
+	if (!FlJsonUtility::Deserialize(metaJson, metaPath) || !metaJson.is_object()) return;
 
 	auto loadFlag{ false };
-	FlJsonUtility::GetValue(metaJson, "loadFlag", &loadFlag);
+	if (metaJson.contains("loadFlag") && metaJson["loadFlag"].is_boolean()) loadFlag = metaJson["loadFlag"].get<bool>();
 	if (loadFlag) return;
 	metaJson["loadFlag"] = true;
 	// 更新を保存
@@ -99,13 +104,15 @@ void FlMetaFileManager::IncrementLoadFlag(const std::string& assetPath)
 
 const std::optional<std::string> FlMetaFileManager::FindAssetByGuid(const std::string& guid) const
 {
+	std::lock_guard lock(m_metaMutex);
 	auto it{ m_guidMap.find(guid) };
-	if (it != m_guidMap.end()) return it->second;
+	if (it != m_guidMap.end() && !it->second.empty()) return it->second;
 	else return std::nullopt;
 }
 
 const std::optional<std::string> FlMetaFileManager::FindGuidByAsset(const std::filesystem::path& path) const
 {
+	std::lock_guard lock(m_metaMutex);
 	auto metaFolder{ GetMetaFolderPath(path) };
 	auto metaFileName{ path.filename().string() + m_metaFileExtension };
 	auto metaPath{ metaFolder / metaFileName };
@@ -118,6 +125,7 @@ const std::optional<std::string> FlMetaFileManager::FindGuidByAsset(const std::f
 
 const std::list<std::string> FlMetaFileManager::GetAllFilePaths() const
 {
+	std::lock_guard lock(m_metaMutex);
 	std::list<std::string> filePaths;
 
 	// ルートが存在しない場合は空のリストを返す
@@ -144,6 +152,7 @@ const std::list<std::string> FlMetaFileManager::GetAllFilePaths() const
 
 const bool FlMetaFileManager::IsAssetChanged(const std::filesystem::path& assetPath) const
 {
+	std::lock_guard lock(m_metaMutex);
 	// ファイルが存在しない、またはメタファイルがない場合は変更なしとみなす（あるいはエラー扱い）
 	if (!std::filesystem::exists(assetPath)) return false;
 
@@ -158,36 +167,22 @@ const bool FlMetaFileManager::IsAssetChanged(const std::filesystem::path& assetP
 	if (!FlJsonUtility::Deserialize(metaJson, metaPath)) return false;
 
 	auto isChanged{ false };
-	FlJsonUtility::GetValue(metaJson, "isChanged", &isChanged);
+	if (metaJson.is_object() && metaJson.contains("isChanged") && metaJson["isChanged"].is_boolean()) isChanged = metaJson["isChanged"].get<bool>();
 
 	return isChanged;
 }
 
-void FlMetaFileManager::ResetAssetChangeFlag(const std::filesystem::path& assetPath)
+bool FlMetaFileManager::ResetAssetChangeFlag(const std::filesystem::path& assetPath, const std::optional<std::filesystem::file_time_type>& expectedWriteTime)
 {
-	if (!std::filesystem::exists(assetPath)) return;
-
-	auto metaFolder{ GetMetaFolderPath(assetPath) };
-	auto metaFileName{ assetPath.filename().string() + m_metaFileExtension };
-	auto metaPath{ metaFolder / metaFileName };
-
-	if (!std::filesystem::exists(metaPath)) return;
-
-	// メタファイルを読み込み
-	auto metaJson{ nlohmann::json{} };
-	if (FlJsonUtility::Deserialize(metaJson, metaPath))
-	{
-		// 既に false なら書き込み処理をスキップして負荷を減らす
-		auto currentStatus{ false };
-		FlJsonUtility::GetValue(metaJson, "isChanged", &currentStatus);
-
-		if (currentStatus) 
-		{
-			metaJson["isChanged"] = false;
-			FlJsonUtility::Serialize(metaJson, metaPath);
-		}
-	}
-	else FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to Deserialize isChanged %s", metaPath.string().c_str());
+	std::lock_guard lock(m_metaMutex);
+	std::error_code ec;
+	if (!std::filesystem::exists(assetPath, ec) || ec) return false;
+	if (expectedWriteTime && (std::filesystem::last_write_time(assetPath, ec) != *expectedWriteTime || ec)) return false;
+	const auto metaPath = GetMetaFolderPath(assetPath) / (assetPath.filename().string() + m_metaFileExtension);
+	auto metaJson = nlohmann::json{};
+	if (!FlJsonUtility::Deserialize(metaJson, metaPath) || !metaJson.is_object()) return false;
+	metaJson["isChanged"] = false;
+	return FlJsonUtility::Serialize(metaJson, metaPath);
 }
 
 std::filesystem::path FlMetaFileManager::GetMetaFolderPath(const std::filesystem::path& assetPath) const
@@ -203,8 +198,8 @@ const std::optional<std::string> FlMetaFileManager::GetGuidFromMetaFile(const st
 	auto existingGuid{ std::string{} };
 	if (metaExists)
 	{
-		if (FlJsonUtility::Deserialize(metaJson, metaPath)) 
-			FlJsonUtility::GetValue(metaJson, "Guid", &existingGuid);
+		if (FlJsonUtility::Deserialize(metaJson, metaPath) && metaJson.is_object() && metaJson.contains("Guid") && metaJson["Guid"].is_string())
+			existingGuid = metaJson["Guid"].get<std::string>();
 		else FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to Deserialize Guid %s", metaPath.c_str());
 	}
 
@@ -225,12 +220,16 @@ void FlMetaFileManager::ExistsMetaFolder(const std::filesystem::path& path) cons
 
 bool FlMetaFileManager::IsAssetModified(const std::filesystem::path& assetPath, const nlohmann::json& metaJson) const
 {
+	if (metaJson.contains("lastWriteTicks") && metaJson["lastWriteTicks"].is_number_integer())
+		return metaJson["lastWriteTicks"].get<int64_t>() != std::filesystem::last_write_time(assetPath).time_since_epoch().count();
 	std::string recordedTime;
 	if (std::filesystem::is_regular_file(assetPath)) {
-		FlJsonUtility::GetValue(metaJson, "lastModified", &recordedTime);
+		if (!metaJson.contains("lastModified") || !metaJson["lastModified"].is_string()) return true;
+		recordedTime = metaJson["lastModified"].get<std::string>();
 	}
 	else if (std::filesystem::is_directory(assetPath)) {
-		FlJsonUtility::GetValue(metaJson, "lastUpdated", &recordedTime);
+		if (!metaJson.contains("lastUpdated") || !metaJson["lastUpdated"].is_string()) return true;
+		recordedTime = metaJson["lastUpdated"].get<std::string>();
 	}
 	else {
 		return true; // 不明な場合更新
@@ -245,6 +244,7 @@ bool FlMetaFileManager::IsAssetModified(const std::filesystem::path& assetPath, 
 
 void FlMetaFileManager::CreateOrUpdateFlMetaFile(const std::filesystem::path& assetPath)
 {
+	std::lock_guard lock(m_metaMutex);
 	if (assetPath.filename() == ".FlMeta") return;
 	// .FlMetaフォルダ作成
 	auto metaFolder{ GetMetaFolderPath(assetPath) };
@@ -258,31 +258,31 @@ void FlMetaFileManager::CreateOrUpdateFlMetaFile(const std::filesystem::path& as
 	auto metaExists{ std::filesystem::exists(metaPath) };
 	if (metaExists)
 	{
-		if (FlJsonUtility::Deserialize(metaJson, metaPath)) {
+		if (FlJsonUtility::Deserialize(metaJson, metaPath) && metaJson.is_object() && (!metaJson.contains("Guid") || metaJson["Guid"].is_string())) {
 			FlJsonUtility::GetValue(metaJson, "Guid", &existingGuid);
 			// 変更がない場合スキップ
-			if (!IsAssetModified(assetPath, metaJson)) {
+			if (!existingGuid.empty() && !IsAssetModified(assetPath, metaJson)) {
 				m_guidMap[existingGuid] = assetPath.string();
 				return;
 			}
 		}
-		else FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Failed to Deserialize Guid %s", metaPath.string().c_str());
+		else {
+			FlEditorAdministrator::Instance().GetLogger()->AddErrorLog("Invalid metadata was preserved: %s", metaPath.string().c_str());
+			return;
+		}
 	}
 	// GUIDを設定（既存のものを保持、なければ新規生成）
 	if (existingGuid.empty())
 	{
 		auto guid{ FlGuid{} };
-		guid.NewGuid();
 
 		auto strGuid{ guid.ToString() };
 		metaJson["Guid"] = strGuid;
 
-		m_guidMap[strGuid] = assetPath.string();
 	}
 	else
 	{
 		metaJson["Guid"] = existingGuid;
-		m_guidMap[existingGuid] = assetPath.string();
 	}
 
 	// 基本情報を設定
@@ -317,16 +317,22 @@ void FlMetaFileManager::CreateOrUpdateFlMetaFile(const std::filesystem::path& as
 		}
 		metaJson["children"] = children;
 	}
+	metaJson["lastWriteTicks"] = std::filesystem::last_write_time(assetPath).time_since_epoch().count();
 	metaJson["loadFlag"] = false;
 	metaJson["isChanged"] = true;
 
 	// メタファイル書き込み
-	if(FlJsonUtility::Serialize(metaJson, metaPath))FlEditorAdministrator::Instance().GetLogger()->AddChangeLogU8(u8"Create/Update Meta: %s", metaPath.u8string().c_str());
+	if (FlJsonUtility::Serialize(metaJson, metaPath))
+	{
+		m_guidMap[metaJson["Guid"].get<std::string>()] = assetPath.string();
+		FlEditorAdministrator::Instance().GetLogger()->AddChangeLogU8(u8"Create/Update Meta: %s", metaPath.u8string().c_str());
+	}
 	else FlEditorAdministrator::Instance().GetLogger()->AddErrorLogU8(u8"Failed to Create/Update Meta: %s", metaPath.u8string().c_str());
 }
 
 void FlMetaFileManager::OnFileEvent(const std::filesystem::path& path, FlFileWatcher::FileStatus status)
 {
+	std::lock_guard lock(m_metaMutex);
 	if (IsInsideFlMeta(path) || path.extension() == m_metaFileExtension) return;
 	switch (status)
 	{
@@ -344,8 +350,9 @@ void FlMetaFileManager::OnFileEvent(const std::filesystem::path& path, FlFileWat
 		{
 			auto metaPath{ GetMetaFolderPath(path) / (path.filename().string() + m_metaFileExtension) };
 
-			if(GetGuidFromMetaFile(metaPath.string()).has_value())
-				m_guidMap[GetGuidFromMetaFile(metaPath.string()).value()].clear();
+			const auto guid = GetGuidFromMetaFile(metaPath.string());
+			if (guid)
+				m_guidMap.erase(*guid);
 			else
 			{
 				auto isPathValid{ [](const std::string& p) {

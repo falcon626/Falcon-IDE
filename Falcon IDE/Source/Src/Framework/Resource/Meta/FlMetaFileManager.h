@@ -1,5 +1,8 @@
 #pragma once
 
+#include <mutex>
+#include <optional>
+
 class FlMetaFileManager
 {
 public:
@@ -70,13 +73,13 @@ public:
 	/// アセットの変更フラグをリセット
 	/// </summary>
 	/// <param name="assetPath">アセットのパス</param>
-	void ResetAssetChangeFlag(const std::filesystem::path& assetPath);
+	bool ResetAssetChangeFlag(const std::filesystem::path& assetPath, const std::optional<std::filesystem::file_time_type>& expectedWriteTime = std::nullopt);
 
 	/// <summary>
 	/// GUIDマップの参照を所得
 	/// </summary>
 	/// <returns>GUIDマップの参照</returns>
-	const auto& GetGuidMap() const noexcept { return m_guidMap; }
+	auto GetGuidMap() const { std::lock_guard lock(m_metaMutex); return m_guidMap; }
 
 private:
 	/// <summary>
@@ -115,6 +118,8 @@ private:
 	/// </summary>
 	void OnFileEvent(const std::filesystem::path& path, FlFileWatcher::FileStatus status);
 
+	// ponytail: one metadata lock; use per-asset locks only if IO contention matters.
+	mutable std::recursive_mutex m_metaMutex;
 	FlFileWatcher m_fileWatcher;
 	std::string m_metaFileExtension = ".flmeta";
 	std::filesystem::path m_rootPath;

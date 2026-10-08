@@ -17,6 +17,7 @@ private:
     void Update() noexcept;
 
     void RenderPopup();
+    bool CanDeleteProject(const std::string& projectName) const noexcept;
 
     std::unique_ptr<FlVisualStudioProjectManager> m_manager;
     std::unique_ptr<FlMetaFileManager> m_meta;
@@ -41,5 +42,11 @@ private:
     // “ü—Í“à—e
     std::string m_newProjectName;
 
-    bool m_isDirty{ false };
+    struct PendingBuild
+    {
+        std::future<bool> completion;
+        std::filesystem::file_time_type sourceWriteTime;
+    };
+    std::unordered_map<std::string, PendingBuild> m_pendingBuilds;
+    std::unordered_map<std::string, std::filesystem::file_time_type> m_failedBuilds;
 };

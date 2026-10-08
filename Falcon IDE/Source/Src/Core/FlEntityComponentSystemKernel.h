@@ -6,7 +6,7 @@ class FlEntityComponentSystemKernel
 public:
 
     struct ComponentStorage {
-        std::unordered_map<uint32_t, void*> components;
+        std::unordered_map<uint32_t, std::shared_ptr<void>> components;
         ComponentReflection reflection;
         HMODULE owner{};
     };
@@ -39,12 +39,12 @@ public:
      * @param id 確認するID
      * @return 使用中であれば true
      */
-    const bool IsActive(entityId id) const { return m_activeIds.count(id) > Def::UIntZero; }
+    const bool IsActive(entityId id) const { std::lock_guard<std::mutex> lk(m_mu); return m_activeIds.count(id) > Def::UIntZero; }
 
     /**
      * @brief 現在アクティブなIDの数を返す
      */
-    const size_t GetActiveIdCount() const { return m_activeIds.size(); }
+    const size_t GetActiveIdCount() const { std::lock_guard<std::mutex> lk(m_mu); return m_activeIds.size(); }
 
 	void DestroyEntity(entityId id);
 
@@ -82,13 +82,11 @@ public:
 
     void ToLogInfo(const std::string& str)
     {
-        std::lock_guard<std::mutex> lk(m_mu);
         FlEditorAdministrator::Instance().GetLogger()->AddLog(str);
     }
 
     void ToLogError(const std::string& str)
     {
-        std::lock_guard<std::mutex> lk(m_mu);
         FlEditorAdministrator::Instance().GetLogger()->AddErrorLog(str);
     }
 
@@ -133,6 +131,9 @@ private:
             [&](const auto& t) { return std::get<std::string>(t) == name; });
     }
 
+    void RetainModule(HMODULE module);
+    void ReleaseModule(HMODULE module) noexcept;
+
     mutable std::mutex m_mu;
     mutable std::mutex m_moduleCallsMu;
 
@@ -140,6 +141,7 @@ private:
     std::condition_variable_any m_moduleCv;
 
     std::vector<std::tuple<priority, std::string, ComponentStorage>> m_storages;
+    std::unordered_map<entityId, nlohmann::json> m_unresolvedComponents;
 
     // 現在使用中のIDのセット (衝突回避と存在確認用)
     std::unordered_set<entityId> m_activeIds;

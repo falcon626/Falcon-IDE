@@ -1,5 +1,7 @@
 #pragma once
 
+#include "FlCrypter/Src/FlCrypter.h"
+
 namespace FlJsonUtility
 {
 	//=================================================
@@ -87,11 +89,9 @@ namespace FlJsonUtility
 	/// <param name="path">保存先のファイルパス。</param>
 	static bool Serialize(const nlohmann::json& jsonObj, const std::filesystem::path& path)
 	{
-		std::ofstream file(path);
-
 		try {
-			file << jsonObj.dump(Def::BitMaskPos3);
-			return true;
+			const auto text = jsonObj.dump(Def::BitMaskPos3);
+			return FlAssetProtector::WriteFileBinary(path, std::vector<uint8_t>(text.begin(), text.end()));
 		}
 		catch (...) {
 			return false;
@@ -105,13 +105,15 @@ namespace FlJsonUtility
 	/// <param name="path">読み込み元のファイルパス。</param>
 	static bool Deserialize(nlohmann::json& jsonObj, const std::filesystem::path& path)
 	{
-		std::ifstream file(path);
-
 		try {
-			jsonObj = nlohmann::json::parse(file);
+			std::ifstream file(path);
+			if (!file) return false;
+			auto parsed = nlohmann::json::parse(file);
+			if (file.bad()) return false;
+			jsonObj = std::move(parsed);
 			return true;
 		}
-		catch (const nlohmann::json::parse_error&) {
+		catch (...) {
 			return false;
 		}
 	}

@@ -1,11 +1,11 @@
 #include "ModelLoader.h"
+#include "FlModelImportData.h"
 
 void ModelLoader::BuildNodeHierarchy(aiNode* aiNode, ModelData& model, int32_t parentIndex,
-	std::map<std::string, int32_t>& nodeNameToIndex,
-	const aiScene* pScene, const std::string& dirPath) noexcept
+	std::map<std::string, int32_t>& nodeNameToIndex)
 {
 	auto node = std::make_shared<ModelData::Node>();
-	node->m_name = utf8_to_ansi(aiNode->mName.C_Str());
+	node->m_name = aiNode->mName.C_Str();
 	node->m_mLocal = *reinterpret_cast<Math::Matrix*>(&aiNode->mTransformation.Transpose());
 	node->m_nodeIndex = static_cast<int32_t>(model.WorkNodes().size());
 	node->m_parentIndex = parentIndex;
@@ -17,27 +17,41 @@ void ModelLoader::BuildNodeHierarchy(aiNode* aiNode, ModelData& model, int32_t p
 	if (node->m_parentIndex >= 0)
 		model.WorkNodes()[node->m_parentIndex].m_children.push_back(node->m_nodeIndex);
 
-	for (unsigned int i = 0; i < aiNode->mNumMeshes; ++i) {
-		unsigned int meshIndex = aiNode->mMeshes[i];
-		auto pMesh = pScene->mMeshes[meshIndex];
-		auto pMaterial = pScene->mMaterials[pMesh->mMaterialIndex];
-
-		model.WorkMeshNodeIndices().push_back(node->m_nodeIndex);
-		model.WorkNodes()[node->m_nodeIndex].m_spMesh =
-			Parse(pScene, pMesh, pMaterial, dirPath, model, nodeNameToIndex);
-	}
-
-	// 再帰的に子ノード処理
 	for (unsigned int i = 0; i < aiNode->mNumChildren; ++i) {
-		BuildNodeHierarchy(aiNode->mChildren[i], model, node->m_nodeIndex, nodeNameToIndex, pScene, dirPath);
+		BuildNodeHierarchy(aiNode->mChildren[i], model, node->m_nodeIndex, nodeNameToIndex);
 	}
+}
+
+void ModelLoader::BuildNodeMeshes(const aiNode* sourceNode, const aiScene* scene,
+    const std::string& directory, ModelData& model,
+    const std::map<std::string, int32_t>& nodeNameToIndex, const int32_t nodeIndex)
+{
+    for (unsigned int mesh = 0; mesh < sourceNode->mNumMeshes; ++mesh) {
+        auto meshNodeIndex = nodeIndex;
+        if (mesh > 0) {
+            ModelData::Node child;
+            child.m_name = model.WorkNodes()[nodeIndex].m_name + "#mesh" + std::to_string(mesh);
+            child.m_mLocal = Def::Mat;
+            child.m_nodeIndex = static_cast<int32_t>(model.WorkNodes().size());
+            child.m_parentIndex = nodeIndex;
+            meshNodeIndex = child.m_nodeIndex;
+            model.WorkNodes().push_back(std::move(child));
+            model.WorkNodes()[nodeIndex].m_children.push_back(meshNodeIndex);
+        }
+        const auto sourceMesh = scene->mMeshes[sourceNode->mMeshes[mesh]];
+        const auto material = scene->mMaterials[sourceMesh->mMaterialIndex];
+        model.WorkMeshNodeIndices().push_back(meshNodeIndex);
+        model.WorkNodes()[meshNodeIndex].m_spMesh = Parse(scene, sourceMesh, material, directory, model, nodeNameToIndex);
+    }
+    for (unsigned int child = 0; child < sourceNode->mNumChildren; ++child)
+        BuildNodeMeshes(sourceNode->mChildren[child], scene, directory, model, nodeNameToIndex, model.GetNodes()[nodeIndex].m_children[child]);
 }
 
 bool ModelLoader::Load(std::string filepath, ModelData& model)
 {
 	Assimp::Importer importer;
 	auto flag = aiProcess_Triangulate | aiProcess_FlipUVs |
-		aiProcess_CalcTangentSpace | aiProcess_MakeLeftHanded;
+		aiProcess_CalcTangentSpace | aiProcess_MakeLeftHanded | aiProcess_LimitBoneWeights;
 
 	const auto pScene = importer.ReadFile(filepath, flag);
 	if (!pScene || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !pScene->mRootNode) {
@@ -46,10 +60,14 @@ bool ModelLoader::Load(std::string filepath, ModelData& model)
 
 	auto dirPath = std::filesystem::path(filepath).parent_path().generic_string() + "/";
 
-	// ノード階層を構築（ここでメッシュ割り当ても完了する）
+	// Build the hierarchy before assigning bones and creating meshes.
 	std::map<std::string, int32_t> nodeNameToIndex;
 	model.WorkNodes().clear();
-	BuildNodeHierarchy(pScene->mRootNode, model, -1, nodeNameToIndex, pScene, dirPath);
+	model.WorkMeshNodeIndices().clear();
+	model.WorkBoneNodeIndices().clear();
+	model.WorkAnimation().clear();
+	model.SetIsSkinMesh(false);
+	BuildNodeHierarchy(pScene->mRootNode, model, -1, nodeNameToIndex);
 
 	// ボーン情報の設定
 	int32_t boneIndex = 0;
@@ -61,7 +79,10 @@ bool ModelLoader::Load(std::string filepath, ModelData& model)
 				auto bone = pMesh->mBones[b];
 				auto boneName = std::string{ bone->mName.C_Str() };
 				auto it = nodeNameToIndex.find(boneName);
-				if (it != nodeNameToIndex.end()) {
+				if (it == nodeNameToIndex.end()) return false;
+				if (model.WorkNodes()[it->second].m_boneIndex >= 0) continue;
+				if (static_cast<size_t>(boneIndex) >= CBufferData::BoneTransforms{}.boneTransforms.size()) return false;
+				{
 					model.WorkNodes()[it->second].m_boneIndex = boneIndex;
 					model.WorkBoneNodeIndices().push_back(it->second);
 					model.WorkNodes()[it->second].m_mBoneInverseWorld =
@@ -71,6 +92,8 @@ bool ModelLoader::Load(std::string filepath, ModelData& model)
 			}
 		}
 	}
+
+	BuildNodeMeshes(pScene->mRootNode, pScene, dirPath, model, nodeNameToIndex, 0);
 
 	// アニメーションデータの解析
 	auto& spAnimationDatas = model.WorkAnimation();
@@ -107,11 +130,7 @@ bool ModelLoader::Load(std::string filepath, ModelData& model)
 				srcChannel.m_scales.emplace_back(scale);
 			}
 
-			for (auto&& node : model.WorkNodes())
-			{
-				if (node.m_name == srcChannel.m_name) 
-					srcChannel.m_nodeOffset = node.m_nodeIndex;
-			}
+			BindAnimationChannel(srcChannel, nodeNameToIndex);
 		}
 		spAnimationDatas.emplace_back(spAnimaData);
 	}
@@ -123,84 +142,8 @@ std::shared_ptr<Mesh> ModelLoader::Parse(const aiScene* pScene, const aiMesh* pM
 	const aiMaterial* pMaterial, const std::string& dirPath, ModelData& model, 
 	const std::map<std::string, int32_t>& nodeNameToIndex) 
 {
-	auto vertices{ MeshVertex{} };
+	auto vertices = ParseMeshVertices(*pMesh, model, nodeNameToIndex);
 	auto faces(std::vector<MeshFace>(pMesh->mNumFaces));
-
-	if (pMesh->HasTextureCoords(0))vertices.UV.resize(pMesh->mNumVertices);
-	if (pMesh->HasNormals())vertices.Normal.resize(pMesh->mNumVertices);
-	if (pMesh->HasTangentsAndBitangents())vertices.Tangent.resize(pMesh->mNumVertices);
-	if (pMesh->HasVertexColors(0))vertices.Color.resize(pMesh->mNumVertices);
-
-#pragma omp parallel for
-	for (auto i{ Def::UIntZero }; i < pMesh->mNumVertices; ++i) {
-		vertices.Position.emplace_back(Math::Vector3(pMesh->mVertices[i].x, pMesh->mVertices[i].y, pMesh->mVertices[i].z));
-		if (pMesh->HasTextureCoords(0)) {
-			vertices.UV[i] = Math::Vector2(pMesh->mTextureCoords[0][i].x, pMesh->mTextureCoords[0][i].y);
-		}
-		if (pMesh->HasNormals()) {
-			vertices.Normal[i] = Math::Vector3(pMesh->mNormals[i].x, pMesh->mNormals[i].y, pMesh->mNormals[i].z);
-		}
-		if (pMesh->HasTangentsAndBitangents()) {
-			vertices.Tangent[i] = Math::Vector3(pMesh->mTangents[i].x, pMesh->mTangents[i].y, pMesh->mTangents[i].z);
-		}
-		if (pMesh->HasVertexColors(0)) {
-			auto c{ Math::Color{pMesh->mColors[0][i].r, pMesh->mColors[0][i].g, pMesh->mColors[0][i].b, pMesh->mColors[0][i].a} };
-			vertices.Color[i] = c.RGBA().v;
-		}
-
-		// ボーンとウェイトの取得
-		if (pMesh->HasBones()) {
-			// 頂点データの初期化
-			const unsigned int numVertices = pMesh->mNumVertices;
-			vertices.SkinWeightList.resize(numVertices, { 0.0f, 0.0f, 0.0f, 0.0f });
-			vertices.SkinIndexList.resize(numVertices, { 0, 0, 0, 0 });
-
-			for (auto&& i : vertices.SkinIndexList)
-			{
-				i[0] = i[1] = i[2] = i[3] = -1;
-			}
-
-			for (unsigned int b = 0; b < pMesh->mNumBones; ++b) {
-				const aiBone* bone = pMesh->mBones[b];
-				std::string boneName = bone->mName.C_Str();
-
-				auto it{ nodeNameToIndex.find(boneName) };
-
-				if (it == nodeNameToIndex.end()) continue;
-				int32_t boneIndex = model.WorkNodes()[it->second].m_boneIndex;
-
-				for (unsigned int w = 0; w < bone->mNumWeights; ++w) {
-					const aiVertexWeight& weight = bone->mWeights[w];
-					const unsigned int vertexId = weight.mVertexId;
-					const float weightValue = weight.mWeight;
-
-					// 範囲チェック
-					if (vertexId >= numVertices) continue;
-
-					// 空きスロットを探す
-					for (int j = 0; j < vertices.SkinWeightList[vertexId].size(); ++j) {
-						if (vertices.SkinIndexList[vertexId][j] == -1) {
-							vertices.SkinWeightList[vertexId][j] = weightValue;
-							vertices.SkinIndexList[vertexId][j]  = boneIndex;
-							break;
-						}
-					}
-				}
-			}
-
-			// ウェイトの正規化
-			for (unsigned int v = 0; v < numVertices; ++v) {
-				auto& weights = vertices.SkinWeightList[v];
-				float sum = weights[0] + weights[1] + weights[2] + weights[3];
-
-				if (sum > 0.0f) {
-					for (int j = 0; j < 4; ++j) {
-						weights[j] /= sum;
-					}
-				}
-			}
-		}
-	}
 
 	for (unsigned int i = 0; i < pMesh->mNumFaces; ++i) {
 		faces[i].Idx[0] = pMesh->mFaces[i].mIndices[0];

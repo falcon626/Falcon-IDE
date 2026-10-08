@@ -1,4 +1,5 @@
 #include "FlEntityComponentSystemKernel.h"
+#include <charconv>
 #include "../../Framework/Module/RuntimeModule/ResistCamera.h"
 #include "../../Framework/Module/RuntimeModule/ResistTransform.h"
 #include "../../Framework/Module/RuntimeModule/ResistModelRender.h"
@@ -6,6 +7,30 @@
 #include "../../Framework/Module/RuntimeModule/ResistCollision.h"
 
 #include "../../Framework/Module/RuntimeModule/Transform.h"
+
+namespace
+{
+    auto ReadSceneEntities(const nlohmann::json& src)
+    {
+        std::vector<std::pair<entityId, const nlohmann::json*>> entities;
+        if (src.is_null()) return entities; // Legacy empty scenes were written as null.
+        if (!src.is_object()) throw std::invalid_argument("Scene must be an object");
+        if (!src.contains("Entities")) return entities;
+        if (!src["Entities"].is_object()) throw std::invalid_argument("Entities must be an object");
+        std::unordered_set<entityId> seen;
+        for (auto& [key, components] : src["Entities"].items())
+        {
+            entityId id{};
+            const auto end = key.data() + key.size();
+            const auto result = std::from_chars(key.data(), end, id);
+            if (result.ec != std::errc{} || result.ptr != end || id == UINT32_MAX || !seen.insert(id).second)
+                throw std::invalid_argument("Invalid or duplicate entity ID: " + key);
+            if (!components.is_object()) throw std::invalid_argument("Entity components must be an object");
+            entities.emplace_back(id, &components);
+        }
+        return entities;
+    }
+}
 
 void FlEntityComponentSystemKernel::initialize()
 {
@@ -18,78 +43,76 @@ void FlEntityComponentSystemKernel::initialize()
 
 const entityId FlEntityComponentSystemKernel::CreateEntity()
 {
-    entityId id{ Def::UIntZero };
-
-    if (!m_freeIds.empty())
+    entityId id{};
     {
-        auto it = m_freeIds.begin();
-        id = *it;
-        m_freeIds.erase(it);
-    }
-    else
-    {
-        id = m_nextId;
-        ++m_nextId;
-
-        if (m_nextId == UINT32_MAX)
+        std::lock_guard<std::mutex> lk(m_mu);
+        if (!m_freeIds.empty())
         {
-            //throw std::overflow_error("Entity ID counter overflowed!");
-            FlEditorAdministrator::Instance().GetLogger()->AddWarningLog("Entity ID counter overflowed!");
+            auto it = m_freeIds.begin();
+            id = *it;
+            m_freeIds.erase(it);
         }
+        else
+        {
+            if (m_nextId == UINT32_MAX) throw std::overflow_error("Entity ID counter overflowed");
+            id = m_nextId++;
+        }
+        m_activeIds.insert(id);
     }
-
-    m_activeIds.insert(id);
-
-	AddComponent("Name", id);
-	AddComponent("Transform", id);
-
+    AddComponent("Name", id);
+    AddComponent("Transform", id);
     return id;
 }
 
+
 const bool FlEntityComponentSystemKernel::CreateEntity(entityId specifiedId)
 {
-    if (m_activeIds.count(specifiedId)) return false; // 既にアクティブなIDとして使われている (衝突)
-
-    m_freeIds.erase(specifiedId);
-    m_activeIds.insert(specifiedId);
-
-    m_nextId = std::max(m_nextId, specifiedId + Def::UIntOne);
-
-	AddComponent("Name", specifiedId);
-	AddComponent("Transform", specifiedId);
-
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        if (specifiedId == UINT32_MAX || m_activeIds.count(specifiedId)) return false;
+        m_freeIds.erase(specifiedId);
+        m_activeIds.insert(specifiedId);
+        m_nextId = std::max(m_nextId, specifiedId + Def::UIntOne);
+    }
+    AddComponent("Name", specifiedId);
+    AddComponent("Transform", specifiedId);
     return true;
 }
 
+
 const bool FlEntityComponentSystemKernel::ReleaseId(entityId id)
 {
-    if (m_activeIds.find(id) == m_activeIds.end()) return false; // 存在しないID、または既に解放済みのIDを解放しようとした
-
-    m_activeIds.erase(id);
-
+    std::lock_guard<std::mutex> lk(m_mu);
+    if (!m_activeIds.erase(id)) return false;
     m_freeIds.insert(id);
     return true;
 }
 
+
 void FlEntityComponentSystemKernel::DestroyEntity(entityId id)
 {
-    for (auto& [_, name, storage] : m_storages) {
-        auto it = storage.components.find(id);
-        if (it != storage.components.end())
+    std::vector<std::shared_ptr<void>> removed;
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        for (auto& [_, name, storage] : m_storages)
         {
-            if (storage.reflection.Destroy && it->second)
-                storage.reflection.Destroy(it->second);
+            auto it = storage.components.find(id);
+            if (it == storage.components.end()) continue;
+            removed.push_back(std::move(it->second));
             storage.components.erase(it);
         }
+        m_unresolvedComponents.erase(id);
+        if (m_activeIds.erase(id)) m_freeIds.insert(id);
     }
-    ReleaseId(id);
+    // Snapshot references defer destruction until the current callback finishes.
 }
+
 
 void FlEntityComponentSystemKernel::AllDestroyEntities()
 {
-    while (!m_activeIds.empty())
-        DestroyEntity(*m_activeIds.begin());
+    for (auto id : GetAllEntityIds()) DestroyEntity(id);
 }
+
 
 void FlEntityComponentSystemKernel::RegisterModule(
     const std::string& typeName,
@@ -129,41 +152,82 @@ void FlEntityComponentSystemKernel::RegisterModule(
 
 void* FlEntityComponentSystemKernel::AddComponent(const std::string& name, entityId entity)
 {
+    ComponentReflection reflection{};
+    HMODULE owner{};
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        auto it = FindStorageIterator(name);
+        if (it == m_storages.end() || !m_activeIds.count(entity)) return nullptr;
+        auto& storage = std::get<ComponentStorage>(*it);
+        if (!storage.reflection.Create) return nullptr;
+        auto existing = storage.components.find(entity);
+        if (existing != storage.components.end()) return existing->second.get();
+        // A placeholder prevents recursive Create/Start from creating the same component twice.
+        storage.components.emplace(entity, nullptr);
+        reflection = storage.reflection;
+        owner = storage.owner;
+        RetainModule(owner);
+    }
+
+    auto destroy = [this, reflection, owner](void* comp) noexcept {
+        try { if (reflection.Destroy && comp) reflection.Destroy(comp); }
+        catch (...) {}
+        ReleaseModule(owner);
+    };
+    std::shared_ptr<void> component;
+    bool createFinished = false;
+    try
+    {
+        void* raw = reflection.Create();
+        createFinished = true;
+        if (raw) component = std::shared_ptr<void>(raw, destroy);
+        else ReleaseModule(owner);
+    }
+    catch (...)
+    {
+        // shared_ptr invokes its deleter if allocation of its control block fails.
+        if (!createFinished) ReleaseModule(owner);
+        std::lock_guard<std::mutex> lk(m_mu);
+        auto it = FindStorageIterator(name);
+        if (it != m_storages.end() && std::get<ComponentStorage>(*it).owner == owner)
+        {
+            auto& components = std::get<ComponentStorage>(*it).components;
+            auto pending = components.find(entity);
+            if (pending != components.end() && !pending->second) components.erase(pending);
+        }
+        throw;
+    }
+
     std::lock_guard<std::mutex> lk(m_mu);
     auto it = FindStorageIterator(name);
-    if (it == m_storages.end())
-        return nullptr;
-
-    auto& storage = std::get<ComponentStorage>(*it);
-    if (!storage.reflection.Create)
-        return nullptr;
-
-    auto existing = storage.components.find(entity);
-    if (existing != storage.components.end())
-        return existing->second;
-
-    void* comp = storage.reflection.Create();
-    storage.components[entity] = comp;
-    return comp;
+    if (it == m_storages.end() || std::get<ComponentStorage>(*it).owner != owner) return nullptr;
+    auto& components = std::get<ComponentStorage>(*it).components;
+    auto pending = components.find(entity);
+    if (pending == components.end()) return nullptr;
+    if (pending->second) return pending->second.get();
+    if (!component) { components.erase(pending); return nullptr; }
+    pending->second = component;
+    return component.get();
 }
+
 
 void FlEntityComponentSystemKernel::RemoveComponent(const std::string& name, entityId entity)
 {
-    std::lock_guard<std::mutex> lk(m_mu);
-    auto itStorage = FindStorageIterator(name);
-    if (itStorage == m_storages.end()) return;
-
-    auto& s = std::get<ComponentStorage>(*itStorage);
-
-    auto it = s.components.find(entity);
-    if (it != s.components.end())
+    std::shared_ptr<void> removed;
     {
-        if (s.reflection.Destroy && it->second)
-            s.reflection.Destroy(it->second);
-
-        s.components.erase(it);
+        std::lock_guard<std::mutex> lk(m_mu);
+        auto unknown = m_unresolvedComponents.find(entity);
+        if (unknown != m_unresolvedComponents.end()) unknown->second.erase(name);
+        auto itStorage = FindStorageIterator(name);
+        if (itStorage == m_storages.end()) return;
+        auto& components = std::get<ComponentStorage>(*itStorage).components;
+        auto it = components.find(entity);
+        if (it == components.end()) return;
+        removed = std::move(it->second);
+        components.erase(it);
     }
 }
+
 
 void* FlEntityComponentSystemKernel::GetComponent(const std::string& name, entityId entity)
 {
@@ -174,7 +238,7 @@ void* FlEntityComponentSystemKernel::GetComponent(const std::string& name, entit
     auto& s = std::get<ComponentStorage>(*itStorage);
     auto it = s.components.find(entity);
     if (it == s.components.end()) return nullptr;
-    return it->second;
+    return it->second.get();
 }
 
 bool FlEntityComponentSystemKernel::HasComponent(const std::string& name, entityId entity) const
@@ -182,216 +246,178 @@ bool FlEntityComponentSystemKernel::HasComponent(const std::string& name, entity
     std::lock_guard<std::mutex> lk(m_mu);
     auto itStorage = FindStorageIterator(name);
     if (itStorage == m_storages.end()) return false;
-    return std::get<ComponentStorage>(*itStorage).components.count(entity) != FALSE;
+    auto& components = std::get<ComponentStorage>(*itStorage).components;
+    auto it = components.find(entity);
+    return it != components.end() && it->second != nullptr;
 }
 
 void FlEntityComponentSystemKernel::UpdateAll(float dt)
 {
     struct Snap {
         entityId id{};
-        void* comp{};
+        std::shared_ptr<void> comp;
         UpdateFn updateFn{};
-        HMODULE ownerModule{};
     };
-
     std::vector<Snap> snaps;
-    snaps.reserve(Def::BitMaskPos8);
-
-    { // スナップ取得（ロック中）
+    {
         std::lock_guard<std::mutex> lk(m_mu);
         for (auto& [_, name, storage] : m_storages)
         {
             if (!storage.reflection.Update) continue;
-
             for (auto& [id, comp] : storage.components)
-            {
-                Snap s;
-                s.id          = id;
-                s.comp        = comp;
-                s.updateFn    = storage.reflection.Update;
-                s.ownerModule = storage.owner;
-                snaps.push_back(std::move(s));
-            }
+                if (comp) snaps.push_back({ id, comp, storage.reflection.Update });
         }
-
-        std::lock_guard<std::mutex> callsLock(m_moduleCallsMu);
-        for (const auto& snap : snaps)
-        {
-            if (snap.ownerModule)
-                m_moduleActiveCalls[snap.ownerModule].fetch_add(1, std::memory_order_acq_rel);
-        }
-    } // ロック解除
-
-    for (auto& s : snaps)
+    }
+    // ponytail: removed components finish this snapshot; generation handles are needed for long-lived references.
+    for (auto& snap : snaps)
     {
-        HMODULE mod = s.ownerModule;
-
-        // 実行（例外はキャッチしてログに出すのが無難）
-        try {
-            if (s.updateFn) s.updateFn(s.comp, s.id, dt);
-        }
-        catch (const std::exception& ex) {
-            ToLogError(std::string{ "UpdateAll: exception in updateFn: " } + ex.what());
-        }
-        catch (...) {
-            ToLogError("UpdateAll: unknown exception in updateFn");
-        }
-
-        if (mod)
-        {
-            {
-                std::lock_guard<std::mutex> lk(m_moduleCallsMu);
-                auto it = m_moduleActiveCalls.find(mod);
-                if (it != m_moduleActiveCalls.end())
-                    it->second.fetch_sub(1, std::memory_order_acq_rel);
-            }
-            m_moduleCv.notify_all();
-        }
+        try { snap.updateFn(snap.comp.get(), snap.id, dt); }
+        catch (const std::exception& ex) { ToLogError(std::string{ "UpdateAll: " } + ex.what()); }
+        catch (...) { ToLogError("UpdateAll: unknown exception"); }
     }
 }
 
+
 nlohmann::json FlEntityComponentSystemKernel::SerializeEntity(entityId id)
 {
-    nlohmann::json obj;
-    for (auto& [_, name, storage] : m_storages) {
-        if (storage.components.count(id))
+    struct Snap { std::string name; std::shared_ptr<void> comp; SerializeFn serialize; };
+    std::vector<Snap> snaps;
+    auto obj = nlohmann::json::object();
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        auto unknown = m_unresolvedComponents.find(id);
+        if (unknown != m_unresolvedComponents.end()) obj = unknown->second;
+        for (auto& [_, name, storage] : m_storages)
         {
-            nlohmann::json cjson;
-            storage.reflection.Serialize(storage.components[id], cjson);
-            obj[name] = cjson;
+            auto it = storage.components.find(id);
+            if (it != storage.components.end() && it->second && storage.reflection.Serialize)
+                snaps.push_back({ name, it->second, storage.reflection.Serialize });
         }
+    }
+    for (auto& snap : snaps)
+    {
+        nlohmann::json value;
+        snap.serialize(snap.comp.get(), value);
+        obj[snap.name] = std::move(value);
     }
     return obj;
 }
 
+
 void FlEntityComponentSystemKernel::DeserializeEntity(entityId id, const nlohmann::json& src)
 {
-    for (auto& [_, name, storage] : m_storages) {
-        if (!src.contains(name)) continue;
-
-        void* comp = AddComponent(name, id);
-        if (!comp) continue;
-        storage.reflection.Deserialize(comp, src[name]);
+    if (!src.is_object()) throw std::invalid_argument("Entity components must be an object");
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        m_unresolvedComponents[id] = src;
+    }
+    for (auto& [name, value] : src.items())
+    {
+        AddComponent(name, id);
+        std::shared_ptr<void> component;
+        DeserializeFn deserialize{};
+        {
+            std::lock_guard<std::mutex> lk(m_mu);
+            auto it = FindStorageIterator(name);
+            if (it == m_storages.end()) continue;
+            auto& storage = std::get<ComponentStorage>(*it);
+            auto comp = storage.components.find(id);
+            if (comp == storage.components.end() || !comp->second || !storage.reflection.Deserialize) continue;
+            component = comp->second;
+            deserialize = storage.reflection.Deserialize;
+        }
+        deserialize(component.get(), value);
     }
 }
+
 
 nlohmann::json FlEntityComponentSystemKernel::SerializeScene()
 {
-	auto scene{ nlohmann::json{} };
-	for (auto id : m_activeIds)
-		scene["Entities"][std::to_string(id)] = SerializeEntity(id);
-
-	return scene;
+    auto scene = nlohmann::json{ { "Entities", nlohmann::json::object() } };
+    for (auto id : GetAllEntityIds()) scene["Entities"][std::to_string(id)] = SerializeEntity(id);
+    return scene;
 }
+
 
 void FlEntityComponentSystemKernel::DeserializeScene(const nlohmann::json& src)
 {
-	if (!src.contains("Entities")) return;
-	for (auto& [idStr, compJson] : src["Entities"].items()) {
-		entityId id{ std::stoul(idStr) };
-		CreateEntity(id);
-		DeserializeEntity(id, compJson);
-	}
+    const auto entities = ReadSceneEntities(src); // Validate the entire document before changing the scene.
+    for (const auto& [id, components] : entities)
+    {
+        CreateEntity(id);
+        DeserializeEntity(id, *components);
+    }
 }
+
 
 void FlEntityComponentSystemKernel::DeserializeScene(
-	const nlohmann::json& src,
-	std::unordered_map<entityId, entityId>* outRemap)
+    const nlohmann::json& src,
+    std::unordered_map<entityId, entityId>* outRemap)
 {
-	if (!src.contains("Entities")) return;
+    const auto entities = ReadSceneEntities(src);
+    std::unordered_map<entityId, entityId> localRemap;
+    for (const auto& [oldId, _] : entities) localRemap.emplace(oldId, CreateEntity());
+    for (const auto& [oldId, components] : entities)
+        DeserializeEntity(localRemap.at(oldId), *components);
 
-	std::unordered_map<entityId, entityId> localRemap;
-
-	for (auto& [oldIdStr, _] : src["Entities"].items())
-	{
-		entityId oldId = std::stoul(oldIdStr);
-		entityId newId = CreateEntity();
-		localRemap[oldId] = newId;
-	}
-
-	for (auto& [oldIdStr, compJson] : src["Entities"].items())
-	{
-		entityId oldId = std::stoul(oldIdStr);
-		DeserializeEntity(localRemap[oldId], compJson);
-	}
-
-	for (auto& [oldId, newId] : localRemap)
-	{
-		if (auto tc = static_cast<TransformComponent*>(
-			GetComponent("Transform", newId)))
-		{
-			if (tc->m_parent != UINT32_MAX)
-				tc->m_parent = localRemap[tc->m_parent];
-
-			for (auto& c : tc->m_children)
-				c = localRemap[c];
-		}
-	}
-
-	if (outRemap)
-		*outRemap = std::move(localRemap);
+    for (const auto& [oldId, newId] : localRemap)
+    {
+        auto* transform = static_cast<TransformComponent*>(GetComponent("Transform", newId));
+        if (!transform) continue;
+        if (transform->m_parent != UINT32_MAX)
+        {
+            auto parent = localRemap.find(transform->m_parent);
+            transform->m_parent = parent == localRemap.end() ? UINT32_MAX : parent->second;
+        }
+        for (auto child = transform->m_children.begin(); child != transform->m_children.end(); )
+        {
+            auto mapped = localRemap.find(*child);
+            if (mapped == localRemap.end()) child = transform->m_children.erase(child);
+            else { *child = mapped->second; ++child; }
+        }
+    }
+    if (outRemap) *outRemap = std::move(localRemap);
 }
+
 
 void FlEntityComponentSystemKernel::ClearComponent(const std::string_view name)
 {
-    std::lock_guard<std::mutex> lk(m_mu);
-    auto itStorage = FindStorageIterator(name);
-    if (itStorage == m_storages.end()) return;
-
-    auto& s = std::get<ComponentStorage>(*itStorage);
-    for (auto& [id, comp] : s.components) {
-        if (s.reflection.Destroy && comp)
-            s.reflection.Destroy(comp);
+    ComponentStorage removed;
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        for (auto& [_, value] : m_unresolvedComponents) value.erase(std::string(name));
+        auto it = FindStorageIterator(name);
+        if (it == m_storages.end()) return;
+        removed = std::move(std::get<ComponentStorage>(*it));
+        m_storages.erase(it);
     }
-    s.components.clear();
-    m_storages.erase(itStorage);
 }
+
 
 void FlEntityComponentSystemKernel::RemoveAllComponentsByModule(HMODULE module)
 {
     if (!module) return;
-
-    std::vector<ComponentStorage> removedStorages;
-
-    // 新しい呼び出しを止めてから、進行中の呼び出しが終わるのを待つ
+    std::vector<ComponentStorage> removed;
     {
         std::lock_guard<std::mutex> lk(m_mu);
-
         for (auto it = m_storages.begin(); it != m_storages.end(); )
         {
             auto& storage = std::get<ComponentStorage>(*it);
-
-            if (storage.owner == module)
-            {
-                removedStorages.push_back(std::move(storage));
-                it = m_storages.erase(it);
-            }
-            else ++it;
+            if (storage.owner != module) { ++it; continue; }
+            removed.push_back(std::move(storage));
+            it = m_storages.erase(it);
         }
     }
-
-    {
-        std::unique_lock<std::mutex> lk(m_moduleCallsMu);
-        m_moduleCv.wait(lk, [&]() {
-            auto it = m_moduleActiveCalls.find(module);
-            if (it == m_moduleActiveCalls.end()) return true;
-            return it->second.load(std::memory_order_acquire) == 0;
-            });
-        m_moduleActiveCalls.erase(module);
-    }
-
-    for (auto& storage : removedStorages)
-    {
-        for (auto& [_, comp] : storage.components)
-        {
-            if (storage.reflection.Destroy && comp)
-            {
-                try { storage.reflection.Destroy(comp); }
-                catch (...) {}
-            }
-        }
-    }
+    // Release our references before waiting for callbacks/snapshots held by other threads.
+    removed.clear();
+    std::unique_lock<std::mutex> lk(m_moduleCallsMu);
+    m_moduleCv.wait(lk, [&]() {
+        auto it = m_moduleActiveCalls.find(module);
+        return it == m_moduleActiveCalls.end() || it->second.load(std::memory_order_acquire) == 0;
+    });
+    m_moduleActiveCalls.erase(module);
 }
+
 
 std::vector<entityId> FlEntityComponentSystemKernel::GetAllEntityIds() const
 {
@@ -416,21 +442,45 @@ std::vector<std::string> FlEntityComponentSystemKernel::GetEntityComponentTypes(
     std::lock_guard<std::mutex> lk(m_mu);
     std::vector<std::string> out;
     for (auto& [_, name, storage] : m_storages) {
-        if (storage.components.count(id)) out.push_back(name);
+        auto it = storage.components.find(id);
+        if (it != storage.components.end() && it->second) out.push_back(name);
     }
     return out;
 }
 
 bool FlEntityComponentSystemKernel::RenderComponentEditor(const std::string& typeName, entityId id) const
 {
-    std::lock_guard<std::mutex> lk(m_mu);
-    auto it = FindStorageIterator(typeName);
-    if (it == m_storages.end()) return false;
-    const auto& storage = std::get<ComponentStorage>(*it);
-    if (!storage.reflection.RenderEditor) return false;
-    auto compIt = storage.components.find(id);
-    if (compIt == storage.components.end()) return false;
-
-    storage.reflection.RenderEditor(compIt->second, id);
+    std::shared_ptr<void> component;
+    RenderEditorFn render{};
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        auto it = FindStorageIterator(typeName);
+        if (it == m_storages.end()) return false;
+        const auto& storage = std::get<ComponentStorage>(*it);
+        auto comp = storage.components.find(id);
+        if (comp == storage.components.end() || !comp->second || !storage.reflection.RenderEditor) return false;
+        component = comp->second;
+        render = storage.reflection.RenderEditor;
+    }
+    render(component.get(), id);
     return true;
+}
+
+
+void FlEntityComponentSystemKernel::RetainModule(HMODULE module)
+{
+    if (!module) return;
+    std::lock_guard<std::mutex> lk(m_moduleCallsMu);
+    m_moduleActiveCalls[module].fetch_add(1, std::memory_order_acq_rel);
+}
+
+void FlEntityComponentSystemKernel::ReleaseModule(HMODULE module) noexcept
+{
+    if (!module) return;
+    {
+        std::lock_guard<std::mutex> lk(m_moduleCallsMu);
+        auto it = m_moduleActiveCalls.find(module);
+        if (it != m_moduleActiveCalls.end()) it->second.fetch_sub(1, std::memory_order_acq_rel);
+    }
+    m_moduleCv.notify_all();
 }

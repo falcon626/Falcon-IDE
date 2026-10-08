@@ -1,4 +1,5 @@
 #include "FlDeveloperCommandPromptEditor.h"
+#include "../../System/VisualStudioManager/FlVisualStudioManager.h"
 
 FlDeveloperCommandPromptEditor::FlDeveloperCommandPromptEditor(const std::filesystem::path& slnPath, FlTerminalEditor& terminal)
     : m_parser(slnPath)
@@ -229,15 +230,11 @@ void FlDeveloperCommandPromptEditor::ExecuteBuild()
     std::string platform = (m_selectedPlatform == 0) ? "Win32" : "x64";
     std::string action = (m_selectedAction == 0) ? "Build" : "Clean";
 
-    std::string solutionDir = std::filesystem::absolute(std::filesystem::current_path()).string() + "\\\\";
-
-    std::string command =
-        "call \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" " +
-        platform + " && msbuild \"" + proj.fullPath.string() +
-        "\" /p:Configuration=" + config +
-        " /p:Platform=" + platform +
-        " /p:SolutionDir=\"" + solutionDir + "\"" +
-        " /t:" + action;
-
+    const auto command = FlVisualStudioProjectManager::CreateBuildCommand(proj.fullPath, config, platform, action);
+    if (command.empty())
+    {
+        m_terminal.AddLog("> Visual C++ build tools were not found.");
+        return;
+    }
     m_terminal.ExecuteCommand(command.c_str());
 }

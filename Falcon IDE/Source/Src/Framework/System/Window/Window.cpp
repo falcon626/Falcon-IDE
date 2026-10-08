@@ -135,6 +135,8 @@ LRESULT CALLBACK Window::callWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
 // ウィンドウ関数
 LRESULT Window::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    FlInput::Instance().ProcessMessage(
+        message, static_cast<std::uintptr_t>(wParam), static_cast<std::intptr_t>(lParam));
 
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam)) {
 		return true;
@@ -235,7 +237,7 @@ bool Window::OpenFileDialog(std::string& filepath, std::string_view title, const
 	ZeroMemory(&o, sizeof(o));
 
 	o.lStructSize = sizeof(o);									// 構造体サイズ
-	o.hwndOwner = nullptr;										// 親ウィンドウのハンドル
+	o.hwndOwner = GetActiveWindow();										// 親ウィンドウのハンドル
 	o.lpstrInitialDir = dir.c_str();							// 初期フォルダー
 	o.lpstrFile = fname;										// 取得したファイル名を保存するバッファ
 	o.nMaxFile = sizeof(fname);									// 取得したファイル名を保存するバッファサイズ
@@ -243,12 +245,13 @@ bool Window::OpenFileDialog(std::string& filepath, std::string_view title, const
 	o.lpstrDefExt = "";
 	o.lpstrTitle = title.data();
 	o.nFilterIndex = 1;
+	o.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
 	if (GetOpenFileNameA(&o))
 	{
 		// カレントディレクトリを元に戻す
 		std::filesystem::current_path(current);
 		// 相対パスへ変換
-		filepath = std::filesystem::relative(fname).string();
+		filepath = std::filesystem::relative(fname, current).string();
 		return true;
 	}
 	std::filesystem::current_path(current);	// カレントディレクトリを元に戻す
@@ -281,7 +284,7 @@ bool Window::SaveFileDialog(std::string& filepath, std::string_view title, const
 	ZeroMemory(&o, sizeof(o));
 
 	o.lStructSize = sizeof(o);									// 構造体サイズ
-	o.hwndOwner = nullptr;										// 親ウィンドウのハンドル
+	o.hwndOwner = GetActiveWindow();										// 親ウィンドウのハンドル
 	o.lpstrInitialDir = dir.c_str();							// 初期フォルダー
 	o.lpstrFile = fname;										// 取得したファイル名を保存するバッファ
 	o.nMaxFile = sizeof(fname);									// 取得したファイル名を保存するバッファサイズ
@@ -289,13 +292,13 @@ bool Window::SaveFileDialog(std::string& filepath, std::string_view title, const
 	o.lpstrDefExt = defExt.data();
 	o.lpstrTitle = title.data();
 	o.nFilterIndex = 1;
-	o.Flags = OFN_FILEMUSTEXIST | OFN_OVERWRITEPROMPT;
+	o.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
 	if (GetSaveFileNameA(&o))
 	{
 		// カレントディレクトリを元に戻す
 		std::filesystem::current_path(current);
 		// 相対パスへ変換
-		filepath = std::filesystem::relative(fname).string();
+		filepath = std::filesystem::relative(fname, current).string();
 		return true;
 	}
 	std::filesystem::current_path(current);	// カレントディレクトリを元に戻す

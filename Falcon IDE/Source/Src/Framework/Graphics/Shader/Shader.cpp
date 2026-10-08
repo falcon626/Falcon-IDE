@@ -1,4 +1,5 @@
 #include "Shader.h"
+#include "../Model/FlModelImportData.h"
 
 const bool Shader::Initializer(GraphicsDevice* pGraphicsDevice, const uint32_t windowWidth, const uint32_t windowHeight)
 {
@@ -139,44 +140,19 @@ void Shader::DrawMesh(const Mesh& mesh)
 	mesh.DrawInstanced(mesh.GetInstanceCount());
 }
 
-void CalculateNodeWorldMatricesRecursive(
-	const std::vector<ModelData::Node>& nodes,
-	int nodeIndex,
-	const Math::Matrix& parentWorld,
-	std::vector<Math::Matrix>& outWorldMatrices)
-{
-	const auto& node{ nodes[nodeIndex] };
-	auto world{ Def::Mat };
-	world = node.m_mLocal * parentWorld;
-	outWorldMatrices[nodeIndex] = world;
-
-	for (int childIdx : node.m_children) {
-		CalculateNodeWorldMatricesRecursive(nodes, childIdx, world, outWorldMatrices);
-	}
-}
-
-void CalculateNodeWorldMatrices(
-	const std::vector<ModelData::Node>& nodes,
-	const size_t nodeSize,
-	std::vector<Math::Matrix>& outWorldMatrices)
-{
-	outWorldMatrices.resize(nodes.size());
-	for (auto idx{ Def::UIntZero }; idx < nodeSize ; ++idx) {
-		if (nodes[idx].m_parentIndex == -Def::IntOne) 
-		{
-			auto world{ nodes[idx].m_mLocal };
-			CalculateNodeWorldMatricesRecursive(nodes, idx, world, outWorldMatrices);
-		}
-	}
-}
-
 void Shader::DrawModel(ModelData& modelData, const Math::Matrix& worldMatrix) 
 {
+	const auto& nodes = modelData.GetNodes();
+	auto mats = std::vector<Math::Matrix>{};
+	CalculateNodeWorldMatrices(nodes, nodes.size(), mats);
+
 	if (!modelData.IsSkinMesh()) 
 	{
 		// í èÌÇÃï`âÊ
-		for (const auto& node : modelData.GetNodes()) {
-			auto world{ node.m_mLocal * worldMatrix };
+		for (size_t nodeIndex = 0; nodeIndex < nodes.size(); ++nodeIndex) {
+			const auto& node = nodes[nodeIndex];
+			if (!node.m_spMesh) continue;
+			auto world{ mats[nodeIndex] * worldMatrix };
 
 			m_upIsSkinMesh->isSkin = FALSE;
 			GraphicsDevice::Instance().GetCBufferAllocater()->BindAndAttachData(3, *m_upIsSkinMesh);
@@ -186,9 +162,6 @@ void Shader::DrawModel(ModelData& modelData, const Math::Matrix& worldMatrix)
 		}
 		return;
 	}
-
-	auto mats{ std::vector<Math::Matrix>{} };
-	CalculateNodeWorldMatrices(modelData.WorkNodes(), modelData.GetNodes().size(), mats);
 
 	for (const auto& node : modelData.WorkNodes()) {
 		if (node.m_boneIndex != -Def::IntOne && node.m_boneIndex < m_upBoneTransforms->boneTransforms.size()) 
@@ -201,7 +174,6 @@ void Shader::DrawModel(ModelData& modelData, const Math::Matrix& worldMatrix)
 	GraphicsDevice::Instance().GetCBufferAllocater()->BindAndAttachData(3, *m_upIsSkinMesh);
 	GraphicsDevice::Instance().GetCBufferAllocater()->BindAndAttachData(2, *m_upBoneTransforms);
 
-	auto nodes{ modelData.GetNodes() };
 	// ÉÅÉbÉVÉÖï`âÊ
 	for (const auto& meshIdx : modelData.GetMeshNodeIndices()) {
 		auto world{ mats[meshIdx] * worldMatrix };
@@ -215,9 +187,15 @@ void Shader::DrawModel(ModelData& modelData, const Math::Matrix& worldMatrix)
 
 void Shader::DrawModel(ModelData& modelData, const Math::Matrix& worldMatrix, ComPtr<ID3D12GraphicsCommandList6>& cmdList)
 {
+	const auto& nodes = modelData.GetNodes();
+	auto mats = std::vector<Math::Matrix>{};
+	CalculateNodeWorldMatrices(nodes, nodes.size(), mats);
+
 	// í èÌÇÃï`âÊ
-	for (const auto& node : modelData.GetNodes()) {
-		auto world{ node.m_mLocal * worldMatrix };
+	for (size_t nodeIndex = 0; nodeIndex < nodes.size(); ++nodeIndex) {
+		const auto& node = nodes[nodeIndex];
+		if (!node.m_spMesh) continue;
+		auto world{ mats[nodeIndex] * worldMatrix };
 
 		GraphicsDevice::Instance().GetCBufferAllocater()->BindAndAttachData(1, world, cmdList);
 		if (node.m_spMesh) DrawMesh(*node.m_spMesh);
